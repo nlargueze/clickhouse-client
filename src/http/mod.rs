@@ -12,6 +12,7 @@
 //! - query can be sent with a GET + query param `?query=`, or with a POST
 
 mod client;
-mod ops;
+mod query;
 
-pub use client::Client;
+pub use client::*;
+pub use query::*;

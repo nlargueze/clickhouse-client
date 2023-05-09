@@ -73,7 +73,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_connect_local() {
+    async fn test_client_connect() {
         let client = Client::new("http://localhost:8123").database("test");
         assert!(client.ping().await);
     }
