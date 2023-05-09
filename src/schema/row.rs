@@ -1,7 +1,8 @@
-//! Derive macro
+//! DB row
 //!
-//! This module provides a [DbRowExt] trait which must be implemented by structs representing
-//! database records, and a [DbRow] macro to derive that trait.
+//! This module provides a [DbRowExt] which maps a Rust type to and from a DB record.
+//!
+//! A [DbRow] macro is provided to derive that trait for structs.
 
 use std::collections::HashMap;
 
@@ -9,7 +10,7 @@ pub use clickhouse_client_macros::DbRow;
 
 use super::{DbType, TableSchema};
 
-/// Extension trait to represent any struct as a database row
+/// Extension trait to represent a Rusrt type as a database row
 pub trait DbRowExt {
     /// Returns the type DB schema
     fn db_schema() -> TableSchema;
@@ -17,7 +18,7 @@ pub trait DbRowExt {
     /// Returns the DB values
     fn db_values(&self) -> HashMap<&'static str, Box<&'_ dyn DbType>>;
 
-    /// Composes the object from a map (column, value)
+    /// Parses the row from a map(column, value)
     fn from_db_values(values: HashMap<&str, &str>) -> Result<Self, String>
     where
         Self: Sized + Default;

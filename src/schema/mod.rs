@@ -2,27 +2,27 @@
 
 use std::collections::HashMap;
 
-mod derive;
+mod row;
 mod types;
 
-pub use derive::*;
+pub use row::*;
 pub use types::*;
 
 /// Schema prelude
 pub mod prelude {
-    pub use super::{ColSchema, DbRow, DbRowExt, DbSchema, DbType, TableSchema};
+    pub use super::{ColumnSchema, DbRow, DbRowExt, DbType, Schema, TableSchema};
 }
 
 /// DB schema
 #[derive(Debug, Default)]
-pub struct DbSchema {
+pub struct Schema {
     /// Database name
     pub db_name: String,
     /// Tables
     pub tables: HashMap<String, TableSchema>,
 }
 
-impl DbSchema {
+impl Schema {
     /// Instantiates a new schema
     pub fn new(db_name: &str) -> Self {
         Self {
@@ -48,13 +48,13 @@ impl DbSchema {
     }
 }
 
-/// DB table schema
+/// Table schema
 #[derive(Debug)]
 pub struct TableSchema {
     /// Name
     pub name: String,
     /// Columns
-    pub cols: HashMap<String, ColSchema>,
+    pub cols: HashMap<String, ColumnSchema>,
 }
 
 impl TableSchema {
@@ -67,28 +67,28 @@ impl TableSchema {
     }
 
     /// Adds a column schema
-    pub fn column(mut self, col: ColSchema) -> Self {
+    pub fn column(mut self, col: ColumnSchema) -> Self {
         self.cols.insert(col.name.clone(), col);
         self
     }
 
     /// Returns an immutable reference to a column schema
-    pub fn get_column(&self, key: &str) -> Option<&ColSchema> {
+    pub fn get_column(&self, key: &str) -> Option<&ColumnSchema> {
         self.cols.get(key)
     }
 
     /// Returns a mutable reference to a column schema
-    pub fn get_column_mut(&mut self, key: &str) -> Option<&mut ColSchema> {
+    pub fn get_column_mut(&mut self, key: &str) -> Option<&mut ColumnSchema> {
         self.cols.get_mut(key)
     }
 }
 
-/// DB table schema
+/// Column schema
 #[derive(Debug)]
-pub struct ColSchema {
+pub struct ColumnSchema {
     /// Name
     pub name: String,
-    /// Type (Clickhouse type)
+    /// Type (Clickhouse data type)
     pub ty: String,
     /// Primary key
     pub is_primary: bool,

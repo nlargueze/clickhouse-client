@@ -13,7 +13,7 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 ///
 /// # Prerequisites
 ///
-/// The following elements must be in scope: `DbRowExt`, `DbType`, `TableSchema`, `ColSchema`.
+/// The following elements must be in scope: `DbRowExt`, `DbType`, `TableSchema`, `ColumnSchema`.
 ///
 /// # Attributes
 ///
@@ -80,7 +80,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 
         if !field_attrs.skip {
             table_cols.push(quote! {
-                .column(ColSchema {
+                .column(ColumnSchema {
                     name: #col_name.to_string(),
                     ty: #col_type.to_string(),
                     is_primary: #col_is_primary,

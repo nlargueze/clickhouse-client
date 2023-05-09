@@ -4,6 +4,8 @@
 //!
 //! It relies on `hyper` for HTTP requests, `rustls` for TLS, and indirectly the tokio runtime.
 
+#![deny(missing_docs)]
+
 pub mod error;
 pub mod http;
 pub mod schema;
