@@ -49,7 +49,7 @@ async fn init_tracer_schema() {
             let client = new_client();
             let db_schema = Schema::new("test").table(<TestRecord as DbRowExt>::db_schema());
             client.create_db(&db_schema).await.unwrap();
-            for (_, table_schema) in db_schema.tables {
+            for table_schema in db_schema.tables {
                 client.create_table(&table_schema).await.unwrap();
             }
         })

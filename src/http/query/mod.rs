@@ -165,16 +165,16 @@ impl Client {
         let fields = schema
             .cols
             .iter()
-            .map(|(name, col)| format!("{} {}", name, col.ty))
+            .map(|col| format!("{} {}", col.name, col.ty))
             .collect::<Vec<_>>()
             .join(", ");
 
         let keys = schema
             .cols
             .iter()
-            .filter_map(|(name, col)| {
+            .filter_map(|col| {
                 if col.is_primary {
-                    Some(name.to_string())
+                    Some(col.name.to_string())
                 } else {
                     None
                 }
@@ -203,7 +203,7 @@ impl Client {
     {
         let schema = T::db_schema();
         let table = schema.name;
-        let cols = schema.cols;
+        let cols: Vec<_> = schema.cols.iter().map(|col| col.name.as_str()).collect();
         let vals = records
             .iter()
             .map(|record| {
@@ -211,9 +211,9 @@ impl Client {
                 let values = record.db_values();
                 // contains each columns value as string (in the order of columns)
                 let mut values_str = vec![];
-                for (col, _) in cols.iter() {
+                for col in cols.iter() {
                     // iterate over the columns
-                    values_str.push(values.get(col.as_str()).unwrap().to_sql_str());
+                    values_str.push(values.get(col).unwrap().to_sql_str());
                 }
                 values_str
             })
@@ -221,10 +221,7 @@ impl Client {
         let query = format!(
             "INSERT INTO {} ({}) VALUES {}",
             table,
-            cols.keys()
-                .map(|col_name| { col_name.as_str() })
-                .collect::<Vec<_>>()
-                .join(", "),
+            cols.join(", "),
             vals.iter()
                 .map(|record_vals| { format!("({})", record_vals.join(", ")) })
                 .collect::<Vec<String>>()

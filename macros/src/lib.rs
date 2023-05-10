@@ -105,7 +105,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
         impl DbRowExt for #ident {
             fn db_schema() -> TableSchema {
                 TableSchema::new(#table_name)
-                #(#table_cols)*    
+                #(#table_cols)*
             }
 
             fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbType>> {
@@ -129,6 +129,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 }
 
 /// Struct attributes
+#[derive(Debug)]
 struct StructAttrs {
     table_name: LitStr,
 }
@@ -202,6 +203,7 @@ impl StructAttrs {
 }
 
 /// Field attributes
+#[derive(Debug)]
 struct FieldAttrs {
     field_id: Ident,
     col_name: LitStr,
@@ -319,7 +321,7 @@ impl FieldAttrs {
     }
 }
 
-/// Tries to infer the column type from 
+/// Tries to infer the column type from
 fn try_infer_col_type(field: &Field) -> Option<&str> {
     let field_ty = &field.ty;
     let field_ty_str = quote!(#field_ty).to_string().replace(' ', "");
@@ -338,11 +340,11 @@ fn try_infer_col_type(field: &Field) -> Option<&str> {
         "isize" => Some("Int64"),
         "f32" => Some("Float32"),
         "f64" => Some("Float64"),
-        "bool"  => Some("Boolean"),
-        "String"  => Some("String"),
-        "Date"  => Some("Date32"),
-        "DateTime"  => Some("DateTime64(9)"), // 9 = ns precision, UTC by default
-        "OffsetDateTime"  => Some("DateTime64(9)"),
+        "bool" => Some("Boolean"),
+        "String" => Some("String"),
+        "Date" => Some("Date32"),
+        "DateTime" => Some("DateTime64(9)"), // 9 = ns precision, UTC by default
+        "OffsetDateTime" => Some("DateTime64(9)"),
         // nullable
         "Option<u8>" => Some("Nullable(UInt8)"),
         "Option<u16>" => Some("Nullable(UInt16)"),
@@ -358,11 +360,11 @@ fn try_infer_col_type(field: &Field) -> Option<&str> {
         "Option<isize>" => Some("Nullable(Int64)"),
         "Option<f32>" => Some("Nullable(Float32)"),
         "Option<f64>" => Some("Nullable(Float64)"),
-        "Option<bool>"  => Some("Nullable(Boolean)"),
-        "Option<String>"  => Some("Nullable(String)"),
-        "Option<Date>"  => Some("Nullable(Date32)"),
-        "Option<DateTime64>"  => Some("Nullable(DateTime64(9))"),
-        "Option<OffsetDateTime>"  => Some("Nullable(DateTime64(9))"),
-        _ => None
+        "Option<bool>" => Some("Nullable(Boolean)"),
+        "Option<String>" => Some("Nullable(String)"),
+        "Option<Date>" => Some("Nullable(Date32)"),
+        "Option<DateTime64>" => Some("Nullable(DateTime64(9))"),
+        "Option<OffsetDateTime>" => Some("Nullable(DateTime64(9))"),
+        _ => None,
     }
 }
