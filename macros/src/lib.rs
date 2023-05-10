@@ -129,7 +129,6 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 }
 
 /// Struct attributes
-#[derive(Debug)]
 struct StructAttrs {
     table_name: LitStr,
 }
@@ -203,7 +202,6 @@ impl StructAttrs {
 }
 
 /// Field attributes
-#[derive(Debug)]
 struct FieldAttrs {
     field_id: Ident,
     col_name: LitStr,
