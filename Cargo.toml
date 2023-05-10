@@ -3,7 +3,7 @@ members = ["macros"]
 
 [package]
 name = "clickhouse-client"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Client for Clickhouse DB"
 license = "MIT OR Apache-2.0"
