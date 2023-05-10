@@ -86,12 +86,14 @@ mod time {
             //
             // NB2: CLickhouse accepts only UTC dates (the timezone is a column metadata)
             let date_utc = self.to_offset(UtcOffset::UTC);
-            let format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+            let format =
+                format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
             format!("'{}'", date_utc.format(format).unwrap())
         }
 
         fn from_sql_str(s: &str) -> Result<Self, String> {
-            let format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+            let format =
+                format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
             let prim_dt = PrimitiveDateTime::parse(s, &format).map_err(|e| e.to_string())?;
             Ok(prim_dt.assume_offset(UtcOffset::UTC))
         }

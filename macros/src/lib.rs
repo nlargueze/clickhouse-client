@@ -340,10 +340,9 @@ fn try_infer_col_type(field: &Field) -> Option<&str> {
         "f64" => Some("Float64"),
         "bool"  => Some("Boolean"),
         "String"  => Some("String"),
-        "Date"  => Some("Date"),
-        "DateTime"  => Some("DateTime"),
-        "DateTime64"  => Some("DateTime64"),
-        "OffsetDateTime"  => Some("DateTime"),
+        "Date"  => Some("Date32"),
+        "DateTime"  => Some("DateTime64(9)"), // 9 = ns precision, UTC by default
+        "OffsetDateTime"  => Some("DateTime64(9)"),
         // nullable
         "Option<u8>" => Some("Nullable(UInt8)"),
         "Option<u16>" => Some("Nullable(UInt16)"),
@@ -361,10 +360,9 @@ fn try_infer_col_type(field: &Field) -> Option<&str> {
         "Option<f64>" => Some("Nullable(Float64)"),
         "Option<bool>"  => Some("Nullable(Boolean)"),
         "Option<String>"  => Some("Nullable(String)"),
-        "Option<Date>"  => Some("Nullable(Date)"),
-        "Option<DateTime>"  => Some("Nullable(DateTime)"),
-        "Option<DateTime64>"  => Some("Nullable(DateTime64)"),
-        "Option<OffsetDateTime>"  => Some("Nullable(DateTime)"),
+        "Option<Date>"  => Some("Nullable(Date32)"),
+        "Option<DateTime64>"  => Some("Nullable(DateTime64(9))"),
+        "Option<OffsetDateTime>"  => Some("Nullable(DateTime64(9))"),
         _ => None
     }
 }
