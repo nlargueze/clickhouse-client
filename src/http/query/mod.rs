@@ -150,18 +150,16 @@ impl Client {
     /// Creates a database
     #[tracing::instrument(skip(self))]
     pub async fn create_db(&self, schema: &Schema) -> Result<(), Error> {
-        let query = format!(
-            "CREATE DATABASE IF NOT EXISTS {} ENGINE = MergeTree()",
-            schema.db_name
-        );
-
-        let _res_bytes = self.raw_query(query).await?;
+        let query = format!("CREATE DATABASE IF NOT EXISTS {}", schema.db_name);
+        let _res_bytes = self.raw_query(query, None).await?;
         Ok(())
     }
 
     /// Creates a table
     #[tracing::instrument(skip(self))]
     pub async fn create_table(&self, schema: &TableSchema) -> Result<(), Error> {
+        let table = self.full_table_name(&schema.name);
+
         let fields = schema
             .cols
             .iter()
@@ -184,10 +182,10 @@ impl Client {
 
         let query = format!(
             "CREATE TABLE IF NOT EXISTS {} ({}) ENGINE = MergeTree() PRIMARY KEY ({})",
-            schema.name, fields, keys
+            table, fields, keys
         );
 
-        let _res_bytes = self.raw_query(query).await?;
+        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
         Ok(())
     }
 
@@ -202,7 +200,7 @@ impl Client {
         T: DbRowExt,
     {
         let schema = T::db_schema();
-        let table = schema.name;
+        let table = self.full_table_name(&schema.name);
         let cols: Vec<_> = schema.cols.iter().map(|col| col.name.as_str()).collect();
         let vals = records
             .iter()
@@ -228,7 +226,7 @@ impl Client {
                 .join(", "),
         );
 
-        let _res_bytes = self.raw_query(query).await?;
+        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
         Ok(())
     }
 
@@ -243,7 +241,7 @@ impl Client {
         T: DbRowExt + Default,
     {
         let schema = T::db_schema();
-        let table = schema.name;
+        let table = self.full_table_name(&schema.name);
         let cols = if cols.is_empty() {
             "*".to_string()
         } else {
@@ -251,7 +249,7 @@ impl Client {
         };
         let query = format!("SELECT {cols} FROM {table}{where_cond} FORMAT TabSeparatedWithNames");
 
-        let res_bytes = self.raw_query(query).await?;
+        let res_bytes = self.raw_query(query, self.db.clone()).await?;
         let res_str = String::from_utf8(res_bytes)?;
         // tracing::debug!(query_res = res_str, "returned raw result");
 
@@ -294,7 +292,7 @@ impl Client {
         T: DbRowExt,
     {
         let schema = T::db_schema();
-        let table = schema.name;
+        let table = self.full_table_name(&schema.name);
         let col_values = record
             .db_values()
             .iter()
@@ -309,7 +307,7 @@ impl Client {
             .join(", ");
         let query = format!("ALTER TABLE {} UPDATE {}{}", table, col_values, where_cond);
 
-        let _res_bytes = self.raw_query(query).await?;
+        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
         Ok(())
     }
 
@@ -320,10 +318,10 @@ impl Client {
         T: DbRowExt,
     {
         let schema = T::db_schema();
-        let table = schema.name;
+        let table = self.full_table_name(&schema.name);
         let query = format!("ALTER TABLE {} DELETE{}", table, where_cond);
 
-        let _res_bytes = self.raw_query(query).await?;
+        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
         Ok(())
     }
 
@@ -331,19 +329,24 @@ impl Client {
     ///
     /// # Arguments
     ///
-    /// The argument is the raw query as a string
+    /// - raw query as a string
+    /// - db if a specific is targeted
     ///
     /// # Result
     ///
     /// The result is a vector of bytes in case of success, or an error message in case of failure
-    #[tracing::instrument(skip_all, fields(query = {let s: String = query.clone().into(); s }))]
-    pub async fn raw_query(&self, query: impl Into<String> + Clone) -> Result<Vec<u8>, Error> {
+    #[tracing::instrument(skip_all, fields(query = {let s: String = query.clone().into(); s }, db = self.db))]
+    pub async fn raw_query(
+        &self,
+        query: impl Into<String> + Clone,
+        db: Option<String>,
+    ) -> Result<Vec<u8>, Error> {
         let query: String = query.into();
 
         let mut req_builder = hyper::Request::builder().uri(&self.url).method("POST");
 
         // add default database
-        if let Some(db) = &self.db {
+        if let Some(db) = &db {
             const HEADER_DEFAULT_DB: &str = "X-ClickHouse-Database";
             req_builder = req_builder.header(HEADER_DEFAULT_DB, db);
         }
@@ -369,6 +372,15 @@ impl Client {
             let res_body_str = String::from_utf8(body_bytes.to_vec())?;
             error!(error = res_body_str, "query failed");
             Err(Error(res_body_str))
+        }
+    }
+
+    /// Returns the full table name with the leading DB (if defined for the client)
+    fn full_table_name(&self, name: &str) -> String {
+        if let Some(db) = &self.db {
+            format!("{db}.{}", name)
+        } else {
+            name.to_string()
         }
     }
 }

@@ -32,38 +32,40 @@ impl Default for TestRecord {
 }
 
 /// Tests that the schema is initialized
-static INIT_SCHEMA: OnceCell<()> = OnceCell::const_new();
-
-/// Returns a new client
-fn new_client() -> Client {
-    Client::new("http://localhost:8123").database("test")
-}
+static INIT_CLIENT: OnceCell<Client> = OnceCell::const_new();
 
 /// Initializes the schema
 #[tracing::instrument]
-async fn init_tracer_schema() {
-    INIT_SCHEMA
-        .get_or_init(|| async {
-            crate::tests::init_test_tracer();
+async fn init() -> &'static Client {
+    crate::tests::init_test_tracer();
 
-            let client = new_client();
+    INIT_CLIENT
+        .get_or_init(|| async {
+            let client = Client::new("http://localhost:8123").database("test");
             let db_schema = Schema::new("test").table(<TestRecord as DbRowExt>::db_schema());
             client.create_db(&db_schema).await.unwrap();
             for table_schema in db_schema.tables {
                 client.create_table(&table_schema).await.unwrap();
             }
+            client
         })
-        .await;
+        .await
+}
+
+#[tokio::test]
+#[tracing::instrument]
+async fn test_init() {
+    let _client = init().await;
+    info!("test_init OK");
 }
 
 #[tokio::test]
 #[tracing::instrument]
 async fn test_query_raw() {
-    init_tracer_schema().await;
-    let client = new_client();
+    let client = init().await;
 
     let raw_query = "SELECT 1";
-    match client.raw_query(raw_query).await {
+    match client.raw_query(raw_query, None).await {
         Ok(ok) => {
             let res_body_str = String::from_utf8(ok).unwrap();
             eprintln!("{res_body_str}");
@@ -79,8 +81,7 @@ async fn test_query_raw() {
 #[tokio::test]
 #[tracing::instrument]
 async fn test_query_insert() {
-    init_tracer_schema().await;
-    let client = new_client();
+    let client = init().await;
 
     let record_1 = TestRecord {
         id: 1,
@@ -112,8 +113,7 @@ async fn test_query_insert() {
 #[tokio::test]
 #[tracing::instrument]
 async fn test_query_select() {
-    init_tracer_schema().await;
-    let client = new_client();
+    let client = init().await;
 
     match client.select::<TestRecord>(&[], &Where::null()).await {
         Ok(_ok) => {
@@ -129,8 +129,7 @@ async fn test_query_select() {
 #[tokio::test]
 #[tracing::instrument]
 async fn test_query_update() {
-    init_tracer_schema().await;
-    let client = new_client();
+    let client = init().await;
 
     let updated_record = TestRecord {
         id: 1,
@@ -161,8 +160,7 @@ async fn test_query_update() {
 #[tokio::test]
 #[tracing::instrument]
 async fn test_query_delete() {
-    init_tracer_schema().await;
-    let client = new_client();
+    let client = init().await;
 
     match client.delete::<TestRecord>(&Where::new("id", "=", 1)).await {
         Ok(_ok) => {
