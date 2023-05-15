@@ -8,15 +8,15 @@ use std::collections::HashMap;
 
 pub use clickhouse_client_macros::DbRow;
 
-use super::{DbType, TableSchema};
+use super::{DbValue, TableSchema};
 
-/// Extension trait to represent a Rusrt type as a database row
+/// Extension trait to represent a Rust type as a database row
 pub trait DbRowExt {
-    /// Returns the type DB schema
+    /// Returns the table schema
     fn db_schema() -> TableSchema;
 
     /// Returns the DB values
-    fn db_values(&self) -> HashMap<&'static str, Box<&'_ dyn DbType>>;
+    fn db_values(&self) -> HashMap<&'static str, Box<&'_ dyn DbValue>>;
 
     /// Parses the row from a map(column, value)
     fn from_db_values(values: HashMap<&str, &str>) -> Result<Self, String>

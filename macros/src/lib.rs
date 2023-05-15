@@ -13,7 +13,8 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 ///
 /// # Prerequisites
 ///
-/// The following elements must be in scope: `DbRowExt`, `DbType`, `TableSchema`, `ColumnSchema`.
+/// - each field Rust type must implement the trait `DbType` and `DbValue`
+/// - The following elements must be in scope: `DbRowExt`, `DbType`, `DbValue`, `TableSchema`, `ColumnSchema`
 ///
 /// # Attributes
 ///
@@ -24,7 +25,6 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 ///
 /// ## Field level attributes:
 /// - **name**: column name (optional)
-/// - **type**: column type (mandatory) - needed to define the DB schema
 /// - **primary**: indicates a primary key (optional)
 /// - **skip**: field is skipped (optional)
 ///
@@ -34,9 +34,9 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 /// #[derive(DbRow)]
 /// #[db(table = "my_table")]
 /// struct MyRecord {
-///   #[db(primary, type = "UInt32")]
+///   #[db(primary)]
 ///   id: u32,
-///   #[db(name = "id", type = "UInt32")]
+///   #[db(name = "id")]
 ///   id: u32,
 ///   #[db(skip)]
 ///   other: String,
@@ -72,7 +72,6 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
         let field_id = &field_attrs.field_id;
         let field_type = &field.ty;
         let col_name = &field_attrs.col_name;
-        let col_type = &field_attrs.col_type;
         let col_is_primary = &field_attrs.primary;
         if *col_is_primary {
             has_primary_key = true;
@@ -82,7 +81,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
             table_cols.push(quote! {
                 .column(ColumnSchema {
                     name: #col_name.to_string(),
-                    ty: #col_type.to_string(),
+                    ty: <#field_type as DbType>::TYPE.to_string(),
                     is_primary: #col_is_primary,
                 })
             });
@@ -90,7 +89,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
                 map.insert(#col_name, Box::new(&self.#field_id));
             });
             set_record_fields.push(quote! {
-                record.#field_id = <#field_type as DbType>::from_sql_str(values[#col_name])
+                record.#field_id = <#field_type as DbValue>::from_sql_str(values[#col_name])
                 .map_err(|err| format!("({}) {}", #col_name, err))?;
             });
         }
@@ -108,9 +107,9 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
                 #(#table_cols)*
             }
 
-            fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbType>> {
+            fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbValue>> {
                 // NB: map must be typed, otherwise it infers the value type from the 1st inserted value
-                let mut map: ::std::collections::HashMap<&str, Box<&'_ dyn DbType>> = ::std::collections::HashMap::new();
+                let mut map: ::std::collections::HashMap<&str, Box<&'_ dyn DbValue>> = ::std::collections::HashMap::new();
                 #(#map_insert_values) *
                 map
             }
@@ -205,7 +204,6 @@ impl StructAttrs {
 struct FieldAttrs {
     field_id: Ident,
     col_name: LitStr,
-    col_type: LitStr,
     skip: bool,
     primary: bool,
 }
@@ -215,7 +213,6 @@ impl FieldAttrs {
     fn parse(attr_key: &str, field: &Field) -> Self {
         let field_id = field.ident.clone().expect_or_abort("missing struct field");
         let mut col_name = LitStr::new(field_id.to_string().as_str(), field.span());
-        let mut col_type = None; // NB: we default to uint8
         let mut skip = false;
         let mut primary = false;
 
@@ -266,21 +263,6 @@ impl FieldAttrs {
                                             }
                                             col_name = val_lit;
                                         }
-                                        "type" => {
-                                            let val_lit = match syn::parse_str::<LitStr>(val) {
-                                                Ok(ok) => ok,
-                                                Err(_) => {
-                                                    abort!(
-                                                        list.tokens.span(),
-                                                        "value must be quoted"
-                                                    );
-                                                }
-                                            };
-                                            if val_lit.value().is_empty() {
-                                                abort!(list.tokens.span(), "value is empty");
-                                            }
-                                            col_type = Some(val_lit);
-                                        }
                                         _ => {
                                             abort!(list.tokens.span(), "invalid key (valid: name)");
                                         }
@@ -300,69 +282,11 @@ impl FieldAttrs {
         }
 
         // end of 'db' attribute
-        if col_type.is_none() {
-            if let Some(ty) = try_infer_col_type(field) {
-                let val_lit = LitStr::new(ty, field.span());
-                col_type = Some(val_lit);
-            } else {
-                abort!(field.span(), "db.type attribute is required and must be a valid Clickhouse data type, eg. [db(type = \"UInt8\")]");
-            }
-        }
-
         Self {
             field_id,
             col_name,
             skip,
             primary,
-            col_type: col_type.expect("DB type missing"),
         }
-    }
-}
-
-/// Tries to infer the column type from
-fn try_infer_col_type(field: &Field) -> Option<&str> {
-    let field_ty = &field.ty;
-    let field_ty_str = quote!(#field_ty).to_string().replace(' ', "");
-    match field_ty_str.as_str() {
-        "u8" => Some("UInt8"),
-        "u16" => Some("UInt16"),
-        "u32" => Some("UInt32"),
-        "u64" => Some("UInt64"),
-        "u128" => Some("UInt128"),
-        "usize" => Some("UInt64"),
-        "i8" => Some("Int8"),
-        "i16" => Some("Int16"),
-        "i32" => Some("Int32"),
-        "i64" => Some("Int64"),
-        "i128" => Some("Int128"),
-        "isize" => Some("Int64"),
-        "f32" => Some("Float32"),
-        "f64" => Some("Float64"),
-        "bool" => Some("Boolean"),
-        "String" => Some("String"),
-        "Date" => Some("Date32"),
-        "DateTime" => Some("DateTime64(9)"), // 9 = ns precision, UTC by default
-        "OffsetDateTime" => Some("DateTime64(9)"),
-        // nullable
-        "Option<u8>" => Some("Nullable(UInt8)"),
-        "Option<u16>" => Some("Nullable(UInt16)"),
-        "Option<u32>" => Some("Nullable(UInt32)"),
-        "Option<u64>" => Some("Nullable(UInt64)"),
-        "Option<u128>" => Some("Nullable(UInt128)"),
-        "Option<usize>" => Some("Nullable(UInt64)"),
-        "Option<i8>" => Some("Nullable(Int8)"),
-        "Option<i16>" => Some("Nullable(Int16)"),
-        "Option<i32>" => Some("Nullable(Int32)"),
-        "Option<i64>" => Some("Nullable(Int64)"),
-        "Option<i128>" => Some("Nullable(Int128)"),
-        "Option<isize>" => Some("Nullable(Int64)"),
-        "Option<f32>" => Some("Nullable(Float32)"),
-        "Option<f64>" => Some("Nullable(Float64)"),
-        "Option<bool>" => Some("Nullable(Boolean)"),
-        "Option<String>" => Some("Nullable(String)"),
-        "Option<Date>" => Some("Nullable(Date32)"),
-        "Option<DateTime64>" => Some("Nullable(DateTime64(9))"),
-        "Option<OffsetDateTime>" => Some("Nullable(DateTime64(9))"),
-        _ => None,
     }
 }

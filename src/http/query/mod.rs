@@ -55,7 +55,7 @@ use tracing::error;
 
 use crate::{
     error::Error,
-    schema::{DbRowExt, DbType, Schema, TableSchema},
+    schema::{DbRowExt, DbValue, Schema, TableSchema},
 };
 
 use super::Client;
@@ -72,7 +72,7 @@ pub struct Where {
 
 impl Where {
     /// Instantiates with 1 condition
-    pub fn new(col: &str, condition: &str, value: impl DbType) -> Self {
+    pub fn new(col: &str, condition: &str, value: impl DbValue) -> Self {
         let stmt: (String, String, String, String) = (
             "".to_string(),
             col.to_string(),
@@ -89,7 +89,7 @@ impl Where {
     }
 
     /// Adds an AND statement
-    pub fn and(mut self, col: &str, condition: &str, value: impl DbType) -> Self {
+    pub fn and(mut self, col: &str, condition: &str, value: impl DbValue) -> Self {
         let stmt = (
             "AND".to_string(),
             col.to_string(),
@@ -101,7 +101,7 @@ impl Where {
     }
 
     /// Adds an OR statement
-    pub fn or(mut self, col: &str, condition: &str, value: impl DbType) -> Self {
+    pub fn or(mut self, col: &str, condition: &str, value: impl DbValue) -> Self {
         let stmt = (
             "OR".to_string(),
             col.to_string(),

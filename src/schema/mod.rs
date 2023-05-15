@@ -8,7 +8,7 @@ pub use types::*;
 
 /// Schema prelude
 pub mod prelude {
-    pub use super::{ColumnSchema, DbRow, DbRowExt, DbType, Schema, TableSchema};
+    pub use super::{ColumnSchema, DbRow, DbRowExt, DbType, DbValue, Schema, TableSchema};
 }
 
 /// DB schema
