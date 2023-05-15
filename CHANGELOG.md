@@ -2,11 +2,23 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.8.0] - 2023-05-15
+
+### Bug fixes
+
+- fix: fixed DB name options in query [1c317b1](https://github.com/nlargueze/clickhouse-client.git/commit/1c317b1697480d0184bcac6498bd317c0f876479)
+
 ## [v0.7.0] - 2023-05-15
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.7.0
 
 ### Bug fixes
 
 - fix: fixed issue with DB name [eedfab0](https://github.com/nlargueze/clickhouse-client.git/commit/eedfab02905c3f402a3f9a77144ff03e6e0ebac5)
+
+### Uncategorized
+
+- chore(release): Release v0.7.0 [3cef619](https://github.com/nlargueze/clickhouse-client.git/commit/3cef619ec3de255775c4740a8c3ac1635905f834)
 
 ## [v0.6.0] - 2023-05-15
 
