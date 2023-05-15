@@ -2,11 +2,19 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.6.0] - 2023-05-15
+
 ## [v0.5.0] - 2023-05-15
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.5.0
 
 ### New features
 
 - feat: added export to type macros [798043e](https://github.com/nlargueze/clickhouse-client.git/commit/798043eb9036d57f811ce716910b143e776c97df)
+
+### Uncategorized
+
+- chore(release): Release v0.5.0 [eeede99](https://github.com/nlargueze/clickhouse-client.git/commit/eeede99f101dbb2b2c2ffb976e8a553c681be5ec)
 
 ## [v0.4.0] - 2023-05-15
 
