@@ -2,11 +2,23 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.5.0] - 2023-05-15
+
+### New features
+
+- feat: added export to type macros [798043e](https://github.com/nlargueze/clickhouse-client.git/commit/798043eb9036d57f811ce716910b143e776c97df)
+
 ## [v0.4.0] - 2023-05-15
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.4.0
 
 ### New features
 
 - feat: modified DbRowExt to allow any types which implement DbType and DbValue [bd99bc9](https://github.com/nlargueze/clickhouse-client.git/commit/bd99bc93836cf004b932b6d26fa6a4eca939d173)
+
+### Uncategorized
+
+- chore(release): Release v0.4.0 [880a47d](https://github.com/nlargueze/clickhouse-client.git/commit/880a47d52fef1d2cf2c8d9c8d62bfe873372139d)
 
 ## [v0.3.0] - 2023-05-10
 
