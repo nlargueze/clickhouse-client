@@ -24,7 +24,6 @@ pub trait DbValue: Debug {
 }
 
 /// Implements the nullable variant of a db type
-#[macro_export]
 macro_rules! impl_db_nullable_variant {
     ($TY:ty, $DB_TY:tt) => {
         impl DbType for Option<$TY> {
@@ -51,7 +50,6 @@ macro_rules! impl_db_nullable_variant {
 }
 
 /// Implements the array variant of a db type
-#[macro_export]
 macro_rules! impl_db_array_variant {
     ($TY:ty, $DB_TY:tt) => {
         impl DbType for Vec<$TY> {
@@ -91,7 +89,6 @@ macro_rules! impl_db_array_variant {
 }
 
 /// Implements the map variant of a db type
-#[macro_export]
 macro_rules! impl_db_map_variant {
     ($TY:ty, $DB_TY:tt) => {
         impl DbType for HashMap<String, $TY> {
@@ -144,7 +141,6 @@ macro_rules! impl_db_map_variant {
 }
 
 /// Implements a base type which implements `to_string()` and `FromStr`
-#[macro_export]
 macro_rules! impl_db_base_type {
     ($TY:ty, $DB_TY:tt) => {
         impl DbType for $TY {
