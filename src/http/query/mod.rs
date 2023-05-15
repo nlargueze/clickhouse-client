@@ -146,12 +146,26 @@ impl std::fmt::Display for Where {
     }
 }
 
+/// Raw query options
+#[derive(Debug, Default)]
+pub struct RawQueryOptions {
+    /// Skips settings the DB header
+    pub skip_db_header: bool,
+}
+
 impl Client {
     /// Creates a database
     #[tracing::instrument(skip(self))]
     pub async fn create_db(&self, schema: &Schema) -> Result<(), Error> {
         let query = format!("CREATE DATABASE IF NOT EXISTS {}", schema.db_name);
-        let _res_bytes = self.raw_query(query, None).await?;
+        let _res_bytes = self
+            .raw_query(
+                query,
+                Some(RawQueryOptions {
+                    skip_db_header: true,
+                }),
+            )
+            .await?;
         Ok(())
     }
 
@@ -185,7 +199,7 @@ impl Client {
             table, fields, keys
         );
 
-        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
+        let _res_bytes = self.raw_query(query, None).await?;
         Ok(())
     }
 
@@ -226,7 +240,7 @@ impl Client {
                 .join(", "),
         );
 
-        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
+        let _res_bytes = self.raw_query(query, None).await?;
         Ok(())
     }
 
@@ -249,7 +263,7 @@ impl Client {
         };
         let query = format!("SELECT {cols} FROM {table}{where_cond} FORMAT TabSeparatedWithNames");
 
-        let res_bytes = self.raw_query(query, self.db.clone()).await?;
+        let res_bytes = self.raw_query(query, None).await?;
         let res_str = String::from_utf8(res_bytes)?;
         // tracing::debug!(query_res = res_str, "returned raw result");
 
@@ -307,7 +321,7 @@ impl Client {
             .join(", ");
         let query = format!("ALTER TABLE {} UPDATE {}{}", table, col_values, where_cond);
 
-        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
+        let _res_bytes = self.raw_query(query, None).await?;
         Ok(())
     }
 
@@ -321,7 +335,7 @@ impl Client {
         let table = self.full_table_name(&schema.name);
         let query = format!("ALTER TABLE {} DELETE{}", table, where_cond);
 
-        let _res_bytes = self.raw_query(query, self.db.clone()).await?;
+        let _res_bytes = self.raw_query(query, None).await?;
         Ok(())
     }
 
@@ -339,16 +353,18 @@ impl Client {
     pub async fn raw_query(
         &self,
         query: impl Into<String> + Clone,
-        db: Option<String>,
+        opts: Option<RawQueryOptions>,
     ) -> Result<Vec<u8>, Error> {
         let query: String = query.into();
 
         let mut req_builder = hyper::Request::builder().uri(&self.url).method("POST");
 
         // add default database
-        if let Some(db) = &db {
-            const HEADER_DEFAULT_DB: &str = "X-ClickHouse-Database";
-            req_builder = req_builder.header(HEADER_DEFAULT_DB, db);
+        if !opts.map(|opts| opts.skip_db_header).unwrap_or(false) {
+            if let Some(db) = &self.db {
+                const HEADER_DEFAULT_DB: &str = "X-ClickHouse-Database";
+                req_builder = req_builder.header(HEADER_DEFAULT_DB, db);
+            }
         }
 
         // add credentials
