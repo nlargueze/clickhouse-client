@@ -2,11 +2,23 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.9.0] - 2023-05-16
+
+### Bug fixes
+
+- fix: added table engine as a param [469ae36](https://github.com/nlargueze/clickhouse-client.git/commit/469ae3624131ea5bcfe8e95c6a3d0d6e9ed89c1b)
+
 ## [v0.8.0] - 2023-05-15
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.8.0
 
 ### Bug fixes
 
 - fix: fixed DB name options in query [1c317b1](https://github.com/nlargueze/clickhouse-client.git/commit/1c317b1697480d0184bcac6498bd317c0f876479)
+
+### Uncategorized
+
+- chore(release): Release v0.8.0 [84899cb](https://github.com/nlargueze/clickhouse-client.git/commit/84899cbbf55a15f9ce59ad7e5ce6f3dc6f21ed11)
 
 ## [v0.7.0] - 2023-05-15
 
