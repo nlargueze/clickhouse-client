@@ -171,7 +171,7 @@ impl Client {
 
     /// Creates a table
     #[tracing::instrument(skip(self))]
-    pub async fn create_table(&self, schema: &TableSchema) -> Result<(), Error> {
+    pub async fn create_table(&self, schema: &TableSchema, engine: &str) -> Result<(), Error> {
         let table = self.full_table_name(&schema.name);
 
         let fields = schema
@@ -195,8 +195,8 @@ impl Client {
             .join(", ");
 
         let query = format!(
-            "CREATE TABLE IF NOT EXISTS {} ({}) ENGINE = MergeTree() PRIMARY KEY ({})",
-            table, fields, keys
+            "CREATE TABLE IF NOT EXISTS {} ({}) ENGINE = {} PRIMARY KEY ({})",
+            table, fields, engine, keys
         );
 
         let _res_bytes = self.raw_query(query, None).await?;
