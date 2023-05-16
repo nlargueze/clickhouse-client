@@ -1,9 +1,9 @@
-//! Error
+//! Crate error
 
-/// Crate error
+/// Generic error
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
-pub struct Error(pub String);
+pub struct Error(String);
 
 impl Error {
     /// Creates a new error

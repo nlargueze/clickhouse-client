@@ -1,20 +1,20 @@
 //! Macros for `clickhouse-client`
 //!
-//! # [derive(DbRow)]
+//! # [derive(DbRecord)]
 //!
-//! This macro parses a struct and implements the trait `DbRowExt
+//! This macro parses a struct and implements the trait `DbRecordExt`
 
 use proc_macro::TokenStream;
 use proc_macro_error::{abort, proc_macro_error, OptionExt};
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr};
 
-/// A macro to derive the trait `DbRowExt`
+/// A macro to derive the trait `DbRecordExt`
 ///
 /// # Prerequisites
 ///
 /// - each field Rust type must implement the trait `DbType` and `DbValue`
-/// - The following elements must be in scope: `DbRowExt`, `DbType`, `DbValue`, `TableSchema`, `ColumnSchema`
+/// - The following elements must be in scope: `DbRecordExt`, `DbType`, `DbValue`, `TableSchema`, `ColumnSchema`
 ///
 /// # Attributes
 ///
@@ -31,7 +31,7 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 /// # Example
 ///
 /// ```ignore
-/// #[derive(DbRow)]
+/// #[derive(DbRecord)]
 /// #[db(table = "my_table")]
 /// struct MyRecord {
 ///   #[db(primary)]
@@ -43,7 +43,7 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 /// }
 /// ```
 #[proc_macro_error]
-#[proc_macro_derive(DbRow, attributes(db))]
+#[proc_macro_derive(DbRecord, attributes(db))]
 pub fn derive_db_record(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
 
@@ -101,7 +101,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
     }
 
     quote! {
-        impl DbRowExt for #ident {
+        impl DbRecordExt for #ident {
             fn db_schema() -> TableSchema {
                 TableSchema::new(#table_name)
                 #(#table_cols)*

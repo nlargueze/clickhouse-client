@@ -6,13 +6,13 @@
 
 use std::{collections::HashMap, fmt::Debug};
 
-/// Trait to implement a DB type
+/// Trait to represent a Clickhouse cell type
 pub trait DbType: Debug {
     /// Clickhouse cell type
     const TYPE: &'static str;
 }
 
-/// Trait to convert a db value from and into a string
+/// Trait to represent a Clickhouse cell value
 pub trait DbValue: Debug {
     /// Converts a type to a SQL string
     fn to_sql_str(&self) -> String;

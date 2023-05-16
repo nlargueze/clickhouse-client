@@ -1,32 +1,18 @@
 //! DB schema
 
-mod row;
-mod types;
-
-pub use row::*;
-pub use types::*;
-
-/// Schema prelude
-pub mod prelude {
-    pub use super::{ColumnSchema, DbRow, DbRowExt, DbType, DbValue, Schema, TableSchema};
-}
+use crate::{error::Error, Client};
 
 /// DB schema
 #[derive(Debug, Default)]
-pub struct Schema {
-    /// Database name
-    pub db_name: String,
+pub struct DbSchema {
     /// Tables
     pub tables: Vec<TableSchema>,
 }
 
-impl Schema {
+impl DbSchema {
     /// Instantiates a new schema
-    pub fn new(db_name: &str) -> Self {
-        Self {
-            db_name: db_name.to_string(),
-            tables: vec![],
-        }
+    pub fn new() -> Self {
+        Self { tables: vec![] }
     }
 
     /// Adds a table schema
@@ -90,4 +76,54 @@ pub struct ColumnSchema {
     pub ty: String,
     /// Primary key
     pub is_primary: bool,
+}
+
+impl Client {
+    /// Creates a database
+    #[tracing::instrument(skip(self))]
+    pub async fn create_db(&self, db: &str, schema: &DbSchema) -> Result<(), Error> {
+        let query = format!("CREATE DATABASE IF NOT EXISTS {}", db);
+        let mut opts = self.send_raw_query_opts();
+        opts.db = None;
+        let _res_bytes = self.interface.send_raw_query(&query, opts).await?;
+        Ok(())
+    }
+
+    /// Creates a table
+    #[tracing::instrument(skip(self))]
+    pub async fn create_table(&self, schema: &TableSchema, engine: &str) -> Result<(), Error> {
+        let table = if let Some(db) = &self.db {
+            format!("{}.{}", db, schema.name)
+        } else {
+            schema.name.to_string()
+        };
+
+        let fields = schema
+            .cols
+            .iter()
+            .map(|col| format!("{} {}", col.name, col.ty))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let keys = schema
+            .cols
+            .iter()
+            .filter_map(|col| {
+                if col.is_primary {
+                    Some(col.name.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let query = format!(
+            "CREATE TABLE IF NOT EXISTS {} ({}) ENGINE = {} PRIMARY KEY ({})",
+            table, fields, engine, keys
+        );
+
+        let _res_bytes = self.send_query(query.into()).await?;
+        Ok(())
+    }
 }

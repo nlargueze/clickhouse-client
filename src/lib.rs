@@ -2,13 +2,58 @@
 //!
 //! This crate provides a Clickhouse client.
 //!
-//! It relies on `hyper` for HTTP requests, `rustls` for TLS, and indirectly the tokio runtime.
+//! - HTTP interface
+//! - Query builder
+//! - ORM to map to Rust types
+//!
+//! # Features
+//!
+//! - **time**: support for the `time` crate types
+//! - **uuid**: support for the `uuid` crate types
 
 #![deny(missing_docs)]
 
+use interface::{http::Http, Interface};
+
 pub mod error;
-pub mod http;
+pub mod interface;
+pub mod orm;
+pub mod query;
 pub mod schema;
+
+/// Clickhouse client
+pub struct Client {
+    /// Database
+    pub db: Option<String>,
+    /// Credentials
+    pub credentials: Option<(String, String)>,
+    /// Interface
+    pub interface: Box<dyn Interface>,
+}
+
+impl Client {
+    /// Creates a new client (HTTP interface by default)
+    pub fn new(url: &str) -> Self {
+        let interface = Box::new(Http::new(url));
+        Self {
+            db: None,
+            credentials: None,
+            interface,
+        }
+    }
+
+    /// Sets the target database
+    pub fn database(mut self, db: &str) -> Self {
+        self.db = Some(db.to_string());
+        self
+    }
+
+    /// Adds the credentials
+    pub fn credentials(mut self, username: &str, password: &str) -> Self {
+        self.credentials = Some((username.to_string(), password.to_string()));
+        self
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -20,7 +65,7 @@ mod tests {
     static INIT: Once = Once::new();
 
     /// Initializes a tracer for unit tests
-    pub fn init_test_tracer() {
+    pub(crate) fn init_tracer() {
         INIT.call_once(|| {
             let layer_pretty_stdout = PrettyConsoleLayer::default()
                 .wrapped(true)

@@ -15,7 +15,8 @@ time = ["dep:time"]
 uuid = ["dep:uuid"]
 
 [dependencies]
-"clickhouse-client-macros" = { version = "0.8.0", path = "./macros" }
+async-trait = "0.1.68"
+clickhouse-client-macros = { version = "0.8.0", path = "./macros" }
 hyper = { version = "0.14.26", features = ["client", "http1"] }
 hyper-rustls = "0.24.0"
 thiserror = "1.0.40"
