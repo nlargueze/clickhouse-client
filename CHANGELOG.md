@@ -2,11 +2,23 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.10.0] - 2023-05-16
+
+### Bug fixes
+
+- fix: fixed UUID string insert [47dd014](https://github.com/nlargueze/clickhouse-client.git/commit/47dd014723eebdce01c9a3345277caf5dd483aa4)
+
 ## [v0.9.0] - 2023-05-16
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.9.0
 
 ### Bug fixes
 
 - fix: added table engine as a param [469ae36](https://github.com/nlargueze/clickhouse-client.git/commit/469ae3624131ea5bcfe8e95c6a3d0d6e9ed89c1b)
+
+### Uncategorized
+
+- chore(release): Release v0.9.0 [462074a](https://github.com/nlargueze/clickhouse-client.git/commit/462074a26ad93083fd54f3374cedff369016d69e)
 
 ## [v0.8.0] - 2023-05-15
 
