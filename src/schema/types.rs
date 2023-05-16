@@ -247,7 +247,7 @@ mod uuid {
 
     impl DbValue for Uuid {
         fn to_sql_str(&self) -> String {
-            self.to_string()
+            format!("'{self}'")
         }
 
         fn from_sql_str(s: &str) -> Result<Self, String> {
