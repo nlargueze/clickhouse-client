@@ -23,12 +23,21 @@ pub trait Interface: Send + Sync {
 }
 
 /// Options for the `send_raw_query` interface method
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct SendRawQueryOptions {
     /// DB
     pub db: Option<String>,
     /// Credentials
     pub credentials: Option<(String, String)>,
+}
+
+// NB: we need to implement this manually to exclude credentials
+impl std::fmt::Debug for SendRawQueryOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SendRawQueryOptions")
+            .field("db", &self.db)
+            .finish()
+    }
 }
 
 impl SendRawQueryOptions {
@@ -52,11 +61,13 @@ impl SendRawQueryOptions {
 
 impl Client {
     /// Pings the DB
+    #[tracing::instrument(skip_all)]
     pub async fn ping(&self) -> bool {
         self.interface.ping().await
     }
 
     /// Sends a query
+    #[tracing::instrument(skip_all)]
     pub async fn send_query(&self, query: Query) -> Result<Vec<u8>, Error> {
         let options = self.send_raw_query_opts();
         self.interface

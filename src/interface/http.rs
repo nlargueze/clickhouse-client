@@ -38,6 +38,7 @@ impl Http {
 
 #[async_trait]
 impl Interface for Http {
+    #[tracing::instrument(skip(self))]
     async fn ping(&self) -> bool {
         let req = Request::builder()
             .uri(&self.url)
@@ -50,6 +51,7 @@ impl Interface for Http {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn send_raw_query(
         &self,
         query: &str,
@@ -126,6 +128,5 @@ mod tests {
                 panic!("{err}")
             }
         }
-        tracing::info!("test_http_raw_query OK");
     }
 }
