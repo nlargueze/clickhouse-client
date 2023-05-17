@@ -2,11 +2,23 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.14.0] - 2023-05-17
+
+### Bug fixes
+
+- fix: fixed string character escaping [a56143b](https://github.com/nlargueze/clickhouse-client.git/commit/a56143b2c62b0b16aca0f33d1fc729034776dd67)
+
 ## [v0.13.0] - 2023-05-17
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.13.0
 
 ### Bug fixes
 
 - fix: removed unnecessary schema to create_db method [0702b7c](https://github.com/nlargueze/clickhouse-client.git/commit/0702b7c93c2582b4d394d8e0b4da3566415dcfac)
+
+### Uncategorized
+
+- chore(release): Release v0.13.0 [ac9de0d](https://github.com/nlargueze/clickhouse-client.git/commit/ac9de0d833d83f55c173d46cee4879db839d9ad7)
 
 ## [v0.12.0] - 2023-05-17
 
