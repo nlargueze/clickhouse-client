@@ -73,6 +73,7 @@ mod tests {
                 .events_only(false)
                 .show_time(false)
                 .show_target(true)
+                .show_file_info(true)
                 .show_span_info(true)
                 .indent(6);
             let filter_layer = EnvFilter::from_default_env();
