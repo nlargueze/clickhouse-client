@@ -81,7 +81,7 @@ pub struct ColumnSchema {
 impl Client {
     /// Creates a database
     #[tracing::instrument(skip(self))]
-    pub async fn create_db(&self, db: &str, schema: &DbSchema) -> Result<(), Error> {
+    pub async fn create_db(&self, db: &str) -> Result<(), Error> {
         let query = format!("CREATE DATABASE IF NOT EXISTS {}", db);
         let mut opts = self.send_raw_query_opts();
         opts.db = None;

@@ -49,7 +49,7 @@ async fn init() -> &'static Client {
         crate::tests::init_tracer();
         let client = Client::new("http://localhost:8123").database("test");
         let db_schema = DbSchema::new().table(TestRecord::db_schema());
-        client.create_db("test", &db_schema).await.unwrap();
+        client.create_db("test").await.unwrap();
         for table_schema in db_schema.tables {
             client
                 .create_table(&table_schema, "MergeTree()")
