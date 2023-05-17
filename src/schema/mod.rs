@@ -1,36 +1,10 @@
-//! DB schema
+//! DDL
 
-use crate::{error::Error, Client};
+mod query;
 
-/// DB schema
-#[derive(Debug, Default)]
-pub struct DbSchema {
-    /// Tables
-    pub tables: Vec<TableSchema>,
-}
+pub use query::*;
 
-impl DbSchema {
-    /// Instantiates a new schema
-    pub fn new() -> Self {
-        Self { tables: vec![] }
-    }
-
-    /// Adds a table schema
-    pub fn table(mut self, table: TableSchema) -> Self {
-        self.tables.push(table);
-        self
-    }
-
-    /// Returns an immutable reference to a table schema
-    pub fn get_table(&self, key: &str) -> Option<&TableSchema> {
-        self.tables.iter().find(|t| t.name == key)
-    }
-
-    /// Returns a mutable reference to a table schema
-    pub fn get_table_mut(&mut self, key: &str) -> Option<&mut TableSchema> {
-        self.tables.iter_mut().find(|t| t.name == key)
-    }
-}
+use crate::value::Type;
 
 /// Table schema
 #[derive(Debug)]
@@ -38,92 +12,60 @@ pub struct TableSchema {
     /// Name
     pub name: String,
     /// Columns
-    pub cols: Vec<ColumnSchema>,
+    pub columns: Vec<ColumnSchema>,
 }
 
 impl TableSchema {
-    /// Instantiates
+    /// Creates a new table schema with columns
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            cols: vec![],
+            columns: vec![],
         }
     }
 
-    /// Adds a column schema
-    pub fn column(mut self, col: ColumnSchema) -> Self {
-        self.cols.push(col);
+    /// Adds a column
+    pub fn with_column(mut self, column: ColumnSchema) -> Self {
+        self.columns.push(column);
         self
     }
 
-    /// Returns an immutable reference to a column schema
-    pub fn get_column(&self, key: &str) -> Option<&ColumnSchema> {
-        self.cols.iter().find(|c| c.name == key)
+    /// Adds a column with its fields
+    pub fn column(mut self, id: &str, ty: Type, primary: bool) -> Self {
+        self.columns.push(ColumnSchema::new(id, ty, primary));
+        self
     }
 
-    /// Returns a mutable reference to a column schema
-    pub fn get_column_mut(&mut self, key: &str) -> Option<&mut ColumnSchema> {
-        self.cols.iter_mut().find(|c| c.name == key)
+    /// Adds a column
+    pub fn add_column(&mut self, id: &str, ty: Type, primary: bool) -> &mut Self {
+        self.columns.push(ColumnSchema::new(id, ty, primary));
+        self
+    }
+
+    /// Returns a column by ID
+    pub fn get_column_by_id(&self, id: &str) -> Option<&ColumnSchema> {
+        self.columns.iter().find(|c| c.id.as_str() == id)
     }
 }
 
 /// Column schema
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ColumnSchema {
-    /// Name
-    pub name: String,
+    /// ID
+    pub id: String,
     /// Type (Clickhouse data type)
-    pub ty: String,
-    /// Primary key
-    pub is_primary: bool,
+    pub ty: Type,
+    /// Is a primary key
+    pub primary: bool,
 }
 
-impl Client {
-    /// Creates a database
-    #[tracing::instrument(skip(self))]
-    pub async fn create_db(&self, db: &str) -> Result<(), Error> {
-        let query = format!("CREATE DATABASE IF NOT EXISTS {}", db);
-        let mut opts = self.send_raw_query_opts();
-        opts.db = None;
-        let _res_bytes = self.interface.send_raw_query(&query, opts).await?;
-        Ok(())
-    }
-
-    /// Creates a table
-    #[tracing::instrument(skip(self))]
-    pub async fn create_table(&self, schema: &TableSchema, engine: &str) -> Result<(), Error> {
-        let table = if let Some(db) = &self.db {
-            format!("{}.{}", db, schema.name)
-        } else {
-            schema.name.to_string()
-        };
-
-        let fields = schema
-            .cols
-            .iter()
-            .map(|col| format!("{} {}", col.name, col.ty))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let keys = schema
-            .cols
-            .iter()
-            .filter_map(|col| {
-                if col.is_primary {
-                    Some(col.name.to_string())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let query = format!(
-            "CREATE TABLE IF NOT EXISTS {} ({}) ENGINE = {} PRIMARY KEY ({})",
-            table, fields, engine, keys
-        );
-
-        let _res_bytes = self.send_query(query.into()).await?;
-        Ok(())
+impl ColumnSchema {
+    /// Creates a new column
+    pub fn new(id: &str, ty: Type, primary: bool) -> Self {
+        Self {
+            id: id.to_string(),
+            ty,
+            primary,
+        }
     }
 }

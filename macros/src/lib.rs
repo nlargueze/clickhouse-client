@@ -1,49 +1,55 @@
 //! Macros for `clickhouse-client`
 //!
-//! # [derive(DbRecord)]
+//! # [derive(AsChRecord)]
 //!
-//! This macro parses a struct and implements the trait `DbRecordExt`
+//! This macro parses a struct and implements the trait `clickhouse-client::orm::ChRecord`
 
 use proc_macro::TokenStream;
 use proc_macro_error::{abort, proc_macro_error, OptionExt};
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr};
+use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitBool, LitStr};
 
-/// A macro to derive the trait `DbRecordExt`
+/// A macro to derive the trait `ChRecord`
 ///
 /// # Prerequisites
 ///
-/// - each field Rust type must implement the trait `DbType` and `DbValue`
-/// - The following elements must be in scope: `DbRecordExt`, `DbType`, `DbValue`, `TableSchema`, `ColumnSchema`
+/// - each field type must implement the trait `ChValue` to map to a DB type
+/// - The following types must be in scope:
+///     - `Record`
+///     - `ChValue`
+///     - `Value
+///     - `Type`
+///     - `TableSchema`
+///     - `Error`
 ///
 /// # Attributes
 ///
-/// This macro accepts struct and field level attribute called `db`.
+/// This macro accepts struct and field level attribute called `ch`.
 ///
 /// ## Struct level attributes:
 /// - **table**: table name (mandatory)
 ///
 /// ## Field level attributes:
 /// - **name**: column name (optional)
-/// - **primary**: indicates a primary key (optional)
+/// - **primary_key**: indicates a primary key (optional)
 /// - **skip**: field is skipped (optional)
 ///
 /// # Example
 ///
 /// ```ignore
-/// #[derive(DbRecord)]
-/// #[db(table = "my_table")]
+/// #[derive(AsChRecord)]
+/// #[ch(table = "my_table")]
 /// struct MyRecord {
-///   #[db(primary)]
+///   #[ch(primary_key)]
 ///   id: u32,
-///   #[db(name = "id")]
+///   #[ch(name = "id")]
 ///   id: u32,
-///   #[db(skip)]
+///   #[ch(skip)]
 ///   other: String,
 /// }
 /// ```
 #[proc_macro_error]
-#[proc_macro_derive(DbRecord, attributes(db))]
+#[proc_macro_derive(AsChRecord, attributes(ch))]
 pub fn derive_db_record(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
 
@@ -55,43 +61,50 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
     // let semi_token = &input.semi_token;
 
     // parse struct attributes
-    let struct_attrs = StructAttrs::parse("db", &input);
+    let attrs = StructAttrs::parse("ch", &input);
     // eprintln!("struct_attrs= {:#?}", struct_attrs);
-    let table_name = struct_attrs.table_name;
+    let table_name = attrs.table_name;
 
     // parse fields
-    let mut table_cols = vec![];
-    let mut map_insert_values = vec![];
-    let mut has_primary_key = false;
-    let mut set_record_fields = vec![];
+    let mut schema_entries = vec![];
+    let mut into_record_entries = vec![];
+    let mut from_record_entries = vec![];
 
+    let mut has_primary_key = false;
     for field in fields {
-        let field_attrs = FieldAttrs::parse("db", field);
+        let attrs = FieldAttrs::parse("ch", field);
         // eprintln!("field_attrs= {:#?}", field_attrs);
 
-        let field_id = &field_attrs.field_id;
+        let field_id = &attrs.field_id;
         let field_type = &field.ty;
-        let col_name = &field_attrs.col_name;
-        let col_is_primary = &field_attrs.primary;
-        if *col_is_primary {
-            has_primary_key = true;
-        }
+        let col_name = &attrs.col_name;
+        let col_primary = &attrs.primary;
 
-        if !field_attrs.skip {
-            table_cols.push(quote! {
-                .column(ColumnSchema {
-                    name: #col_name.to_string(),
-                    ty: <#field_type as DbType>::TYPE.to_string(),
-                    is_primary: #col_is_primary,
-                })
+        if !attrs.skip.value {
+            // .column("id", Uuid::ch_type(), true)
+            schema_entries.push(quote! {
+                .column(#col_name, #field_type::ch_type(), #col_primary)
             });
-            map_insert_values.push(quote! {
-                map.insert(#col_name, Box::new(&self.#field_id));
+
+            // .field("id", true, Uuid::ch_type(), self.id.into_ch_value())
+            into_record_entries.push(quote! {
+                .field(#col_name, #col_primary, #field_type::ch_type(), self.#field_id.into_ch_value())
             });
-            set_record_fields.push(quote! {
-                record.#field_id = <#field_type as DbValue>::from_sql_str(values[#col_name])
-                .map_err(|err| format!("({}) {}", #col_name, err))?;
+
+            // id: match record.remove_field("id") {
+            //     Some(field) => ::uuid::Uuid::from_ch_value(field.value)?,
+            //     None => return Err(Error::new("Missing field 'id'")),
+            // },
+            from_record_entries.push(quote! {
+                #field_id: match record.remove_field(#col_name) {
+                    Some(field) => #field_type::from_ch_value(field.value)?,
+                    None => return Err(Error::new(format!("Missing field '{}'", #col_name).as_str())),
+                }
             });
+
+            if col_primary.value {
+                has_primary_key = true;
+            }
         }
     }
 
@@ -101,26 +114,21 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
     }
 
     quote! {
-        impl DbRecordExt for #ident {
-            fn db_schema() -> TableSchema {
+        impl ChRecord for #ident {
+            fn ch_schema() -> TableSchema {
                 TableSchema::new(#table_name)
-                #(#table_cols)*
+                    #(#schema_entries)*
             }
 
-            fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbValue>> {
-                // NB: map must be typed, otherwise it infers the value type from the 1st inserted value
-                let mut map: ::std::collections::HashMap<&str, Box<&'_ dyn DbValue>> = ::std::collections::HashMap::new();
-                #(#map_insert_values) *
-                map
+            fn into_ch_record(self) -> Record {
+                Record::new(#table_name)
+                    #(#into_record_entries)*
             }
 
-            fn from_db_values(values: ::std::collections::HashMap<&str, &str>) -> ::std::result::Result<Self, String>
-            where
-                Self: Sized + Default
-            {
-                let mut record = Self::default();
-                #(#set_record_fields) *
-                Ok(record)
+            fn from_ch_record(mut record: Record) -> Result<Self, Error> {
+                Ok(Self {
+                    #(#from_record_entries),*
+                })
             }
         }
     }
@@ -204,8 +212,8 @@ impl StructAttrs {
 struct FieldAttrs {
     field_id: Ident,
     col_name: LitStr,
-    skip: bool,
-    primary: bool,
+    skip: LitBool,
+    primary: LitBool,
 }
 
 impl FieldAttrs {
@@ -213,8 +221,8 @@ impl FieldAttrs {
     fn parse(attr_key: &str, field: &Field) -> Self {
         let field_id = field.ident.clone().expect_or_abort("missing struct field");
         let mut col_name = LitStr::new(field_id.to_string().as_str(), field.span());
-        let mut skip = false;
-        let mut primary = false;
+        let mut skip = LitBool::new(false, field.span());
+        let mut primary = LitBool::new(false, field.span());
 
         for attr in field.attrs.iter() {
             // eprintln!("ATTR: {:#?}", attr);
@@ -227,11 +235,11 @@ impl FieldAttrs {
                         for part in tokens.split(',') {
                             match part {
                                 "skip" => {
-                                    skip = true;
+                                    skip = LitBool::new(true, list.tokens.span());
                                     continue;
                                 }
-                                "primary" => {
-                                    primary = true;
+                                "primary_key" => {
+                                    primary = LitBool::new(true, list.tokens.span());
                                     continue;
                                 }
                                 _ => {}

@@ -1,191 +1,223 @@
-//! ORM mapping
-//!
-//! The module provides mapping between Rust types and Clickhouse types,
-//! as well as a mapping between Rust structs and Clickhouse row records.
+//! ORM
+
+mod query;
 
 #[cfg(test)]
 mod tests;
-mod types;
+
+use crate::{
+    error::Error,
+    query::QueryData,
+    schema::TableSchema,
+    value::{Type, Value},
+};
+
+pub use query::*;
 
 /// ORM prelude
 pub mod prelude {
-    pub use super::{DbRecord, DbRecordExt, DbType, DbValue};
-    pub use crate::schema::{ColumnSchema, TableSchema};
+    pub use super::{ChRecord, Record};
+    pub use crate::{
+        error::Error,
+        schema::TableSchema,
+        value::{ChValue, Type, Value},
+    };
+    pub use clickhouse_client_macros::AsChRecord;
 }
 
-use crate::{error::Error, query::Where, schema::TableSchema, Client};
-use std::collections::HashMap;
-
-pub use clickhouse_client_macros::DbRecord;
-pub use types::*;
-
-/// Extension trait to represent a Rust struct as a database record
-pub trait DbRecordExt {
-    /// Returns table schema
-    fn db_schema() -> TableSchema;
-
-    /// Returns the DB values
-    fn db_values(&self) -> HashMap<&'static str, Box<&'_ dyn DbValue>>;
-
-    /// Parses the row from a map(column, value)
-    fn from_db_values(values: HashMap<&str, &str>) -> Result<Self, String>
-    where
-        Self: Sized + Default;
+/// A DB record
+#[derive(Debug, Clone)]
+pub struct Record {
+    /// Table name
+    pub table: String,
+    /// Fields
+    pub fields: Vec<RecordField>,
 }
 
-impl Client {
-    /// Inserts 1 or several records
-    ///
-    /// # Arguments
-    ///
-    /// If no columns are passed, all columns are returned.
-    ///
-    /// # Returns
-    ///
-    /// In Clickhouse, there is no RETURNING statement, so nothing is returned.
-    #[tracing::instrument(skip_all, fields(records.len = records.len()))]
-    pub async fn insert<T>(&self, records: &[T]) -> Result<(), Error>
-    where
-        T: DbRecordExt,
-    {
-        let schema: TableSchema = T::db_schema();
-        let table = if let Some(db) = &self.db {
-            format!("{}.{}", db, schema.name)
-        } else {
-            schema.name.to_string()
-        };
-        let cols: Vec<_> = schema.cols.iter().map(|col| col.name.as_str()).collect();
-        let vals = records
-            .iter()
-            .map(|record| {
-                // iterate over the records
-                let values = record.db_values();
-                // contains each columns value as string (in the order of columns)
-                let mut values_str = vec![];
-                for col in cols.iter() {
-                    // iterate over the columns
-                    values_str.push(values.get(col).unwrap().to_sql_str());
-                }
-                values_str
-            })
-            .collect::<Vec<_>>();
-        let query = format!(
-            "INSERT INTO {} ({}) VALUES {}",
-            table,
-            cols.join(", "),
-            vals.iter()
-                .map(|record_vals| { format!("({})", record_vals.join(", ")) })
-                .collect::<Vec<String>>()
-                .join(", "),
-        );
+/// A DB record field
+#[derive(Debug, Clone)]
+pub struct RecordField {
+    /// ID
+    pub id: String,
+    /// Is primary key
+    pub primary: bool,
+    /// Type
+    pub ty: Type,
+    /// Value
+    pub value: Value,
+}
 
-        let _res_bytes = self.send_query(query.into()).await?;
-        Ok(())
+impl Record {
+    /// Creates an empty record
+    pub fn new(table: &str) -> Self {
+        Self {
+            table: table.to_string(),
+            fields: vec![],
+        }
     }
 
-    /// Selects 1 or several records
-    ///
-    /// # Arguments
-    ///
-    /// - is cols is empty, all fields are retrieved
-    #[tracing::instrument(skip(self))]
-    pub async fn select<T>(&self, cols: &[&str], where_cond: Where) -> Result<Vec<T>, Error>
-    where
-        T: DbRecordExt + Default,
-    {
-        let schema = T::db_schema();
-        let table = if let Some(db) = &self.db {
-            format!("{}.{}", db, schema.name)
-        } else {
-            schema.name.to_string()
-        };
-        let cols = if cols.is_empty() {
-            "*".to_string()
-        } else {
-            cols.join(", ")
-        };
-        let query = format!("SELECT {cols} FROM {table}{where_cond} FORMAT TabSeparatedWithNames");
+    /// Adds a field
+    pub fn add_field(&mut self, id: &str, primary: bool, ty: Type, value: Value) -> &mut Self {
+        self.fields.push(RecordField {
+            id: id.to_string(),
+            primary,
+            ty,
+            value,
+        });
+        self
+    }
 
-        let res_bytes = self.send_query(query.into()).await?;
-        let res_str = String::from_utf8(res_bytes)?;
-        // tracing::debug!(query_res = res_str, "returned raw result");
+    /// Adds a field
+    pub fn field(mut self, id: &str, primary: bool, ty: Type, value: Value) -> Self {
+        self.fields.push(RecordField {
+            id: id.to_string(),
+            primary,
+            ty,
+            value,
+        });
+        self
+    }
 
-        // parse the DB results
-        let mut res_cols = vec![];
-        let mut res_values = vec![];
-        for (i, line) in res_str.lines().enumerate() {
-            if i == 0 {
-                res_cols = line.split('\t').collect();
-            } else {
-                let mut map = HashMap::new();
-                for (j, val) in line.split('\t').enumerate() {
-                    let col = *res_cols.get(j).expect("shouldn't happen");
-                    map.insert(col, val);
-                }
-                res_values.push(map);
-            }
+    /// Returns the [TableSchema]
+    pub fn schema(&self) -> TableSchema {
+        let mut table = TableSchema::new(self.table.as_str());
+        for field in &self.fields {
+            table.add_column(field.id.as_str(), field.ty.clone(), field.primary);
         }
-        // tracing::debug!(columns = ?res_cols, values = ?res_values, "results parsed");
+        table
+    }
 
-        // parse to object T
+    /// Returns all the fields
+    pub fn fields(&self) -> Vec<&RecordField> {
+        self.fields.iter().collect()
+    }
+
+    /// Returns the primary fields
+    pub fn primary_fields(&self) -> Vec<&RecordField> {
+        self.fields.iter().filter(|f| f.primary).collect::<Vec<_>>()
+    }
+
+    /// Returns a record field
+    pub fn get_field(&self, id: &str) -> Option<&RecordField> {
+        self.fields.iter().find(|f| f.id == id)
+    }
+
+    /// Removes a record field and returns ir
+    pub fn remove_field(&mut self, id: &str) -> Option<RecordField> {
+        let i = match self.fields.iter().position(|f| f.id == id) {
+            Some(i) => i,
+            None => return None,
+        };
+        Some(self.fields.remove(i))
+    }
+}
+
+/// A trait to convert from/to a Clickhouse [Record]
+pub trait ChRecord: Sized {
+    /// Returns the Clickhouse schema
+    fn ch_schema() -> TableSchema;
+
+    /// Converts to a [Record]
+    fn into_ch_record(self) -> Record;
+
+    /// Converts from a [Record]
+    fn from_ch_record(record: Record) -> Result<Self, Error>;
+
+    /// Converts records to a [QueryTable]
+    fn to_query_data(records: Vec<Self>) -> QueryData {
+        let schema = Self::ch_schema();
+        let mut table = QueryData::from_schema(&schema);
+        for record in records {
+            let record = record.into_ch_record();
+            let row = record
+                .fields
+                .into_iter()
+                .map(|f| f.value)
+                .collect::<Vec<_>>();
+            table.add_row(row);
+        }
+        table
+    }
+
+    /// Parses multiple records from a [QueryTable]
+    fn from_query_data(data: QueryData) -> Result<Vec<Self>, Error> {
+        let schema = Self::ch_schema();
+        let parts = data.into_parts();
+        let col_names = parts
+            .names
+            .ok_or(Error::new("Missing column names to parse table"))?
+            .into_iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>();
+
         let mut records = vec![];
-        for map in res_values {
-            let record = T::from_db_values(map).map_err(|err| Error::new(err.as_str()))?;
+        for row in parts.rows {
+            let mut record = Record::new(&schema.name);
+            for (i, value) in row.into_iter().enumerate() {
+                let id = col_names.get(i).ok_or(Error::new("Invalid column"))?;
+                let col_sch = schema.get_column_by_id(id).ok_or(Error::new(""))?;
+                let primary = col_sch.primary;
+                let ty = col_sch.ty.clone();
+                record.add_field(id, primary, ty, value);
+            }
+            let record = Self::from_ch_record(record)?;
             records.push(record);
         }
 
         Ok(records)
     }
-
-    /// Updates a record
-    ///
-    /// # Arguments
-    ///
-    /// If no columns are provided, all columns are updated
-    #[tracing::instrument(skip(self, record))]
-    pub async fn update<T>(&self, record: &T, cols: &[&str], where_cond: Where) -> Result<(), Error>
-    where
-        T: DbRecordExt,
-    {
-        let schema = T::db_schema();
-        let table = if let Some(db) = &self.db {
-            format!("{}.{}", db, schema.name)
-        } else {
-            schema.name.to_string()
-        };
-        let col_values = record
-            .db_values()
-            .iter()
-            .filter_map(|(c, v)| {
-                if cols.is_empty() || cols.contains(c) {
-                    Some(format!("{} = {}", c, v.to_sql_str()))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        let query = format!("ALTER TABLE {} UPDATE {}{}", table, col_values, where_cond);
-
-        let _res_bytes = self.send_query(query.into()).await?;
-        Ok(())
-    }
-
-    /// Deletes a record
-    #[tracing::instrument(skip(self))]
-    pub async fn delete<T>(&self, where_cond: Where) -> Result<(), Error>
-    where
-        T: DbRecordExt,
-    {
-        let schema = T::db_schema();
-        let table = if let Some(db) = &self.db {
-            format!("{}.{}", db, schema.name)
-        } else {
-            schema.name.to_string()
-        };
-        let query = format!("ALTER TABLE {} DELETE{}", table, where_cond);
-
-        let _res_bytes = self.send_query(query.into()).await?;
-        Ok(())
-    }
 }
+
+// // -- TEST --
+
+// struct TestRecord {
+//     /// ID
+//     // #[ch(primary_key)]
+//     id: uuid::Uuid,
+//     /// Name
+//     name: String,
+//     /// Count
+//     count: u8,
+//     /// Date
+//     date: time::Date,
+// }
+
+// impl ChRecord for TestRecord {
+//     fn ch_schema() -> TableSchema {
+//         TableSchema::new("test_orm")
+//             .column("id", Type::UUID, true)
+//             .column("name", Type::String, false)
+//             .column("count", Type::UInt8, false)
+//             .column("date", Type::Date, false)
+//     }
+
+//     fn into_ch_record(self) -> Record {
+//         Record::new("test_orm")
+//             .field("id", true, Type::UUID, self.id.into_ch_value())
+//             .field("name", false, Type::String, self.name.into_ch_value())
+//             .field("count", false, Type::UInt8, self.count.into_ch_value())
+//             .field("date", false, Type::Date, self.date.into_ch_value())
+//     }
+
+//     /// Parses from a Clickhouse record
+//     fn from_ch_record(mut record: Record) -> Result<Self, Error> {
+//         Ok(Self {
+//             id: match record.remove_field("id") {
+//                 Some(field) => ::uuid::Uuid::from_ch_value(field.value)?,
+//                 None => return Err(Error::new("Missing field 'id'")),
+//             },
+//             name: match record.remove_field("name") {
+//                 Some(field) => String::from_ch_value(field.value)?,
+//                 None => return Err(Error::new("Missing field 'name'")),
+//             },
+//             count: match record.remove_field("count") {
+//                 Some(field) => u8::from_ch_value(field.value)?,
+//                 None => return Err(Error::new("Missing field 'count'")),
+//             },
+//             date: match record.remove_field("date") {
+//                 Some(field) => ::time::Date::from_ch_value(field.value)?,
+//                 None => return Err(Error::new("Missing field 'date'")),
+//             },
+//         })
+//     }
+// }

@@ -13,35 +13,72 @@
 
 #![deny(missing_docs)]
 
-use interface::{http::Http, Interface};
+#[cfg(test)]
+mod tests;
+
+use intf::{http::Http, Interface};
 
 pub mod error;
-pub mod interface;
+pub mod intf;
 pub mod orm;
 pub mod query;
 pub mod schema;
+pub mod value;
 
 /// Clickhouse client
-pub struct Client {
+pub struct Client<T>
+where
+    T: Interface,
+{
     /// Database
     pub db: Option<String>,
     /// Credentials
     pub credentials: Option<(String, String)>,
     /// Interface
-    pub interface: Box<dyn Interface>,
+    pub interface: T,
 }
 
-impl Client {
-    /// Creates a new client (HTTP interface by default)
-    pub fn new(url: &str) -> Self {
-        let interface = Box::new(Http::new(url));
+impl Default for Client<Http> {
+    fn default() -> Client<Http> {
+        let interface = Http::new("http://localhost:8123");
         Self {
             db: None,
-            credentials: None,
+            credentials: Default::default(),
             interface,
         }
     }
+}
 
+impl<T> std::fmt::Debug for Client<T>
+where
+    T: Interface + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("db", &self.db)
+            .field("credentials", &self.credentials)
+            .field("interface", &self.interface)
+            .finish()
+    }
+}
+
+impl<T> Clone for Client<T>
+where
+    T: Interface + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            db: self.db.clone(),
+            credentials: self.credentials.clone(),
+            interface: self.interface.clone(),
+        }
+    }
+}
+
+impl<T> Client<T>
+where
+    T: Interface,
+{
     /// Sets the target database
     pub fn database(mut self, db: &str) -> Self {
         self.db = Some(db.to_string());
@@ -55,33 +92,5 @@ impl Client {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::sync::Once;
-
-    use tracing_ext::sub::PrettyConsoleLayer;
-    use tracing_subscriber::{prelude::*, EnvFilter};
-
-    static INIT: Once = Once::new();
-
-    /// Initializes a tracer for unit tests
-    pub(crate) fn init_tracer() {
-        INIT.call_once(|| {
-            let layer_pretty_stdout = PrettyConsoleLayer::default()
-                .wrapped(true)
-                .oneline(false)
-                .events_only(false)
-                .show_time(false)
-                .show_target(true)
-                .show_file_info(true)
-                .show_span_info(true)
-                .indent(6);
-            let filter_layer = EnvFilter::from_default_env();
-
-            tracing_subscriber::registry()
-                .with(layer_pretty_stdout)
-                .with(filter_layer)
-                .init();
-        });
-    }
-}
+/// Client with the HTTP interface
+pub type HttpClient = Client<Http>;

@@ -1,116 +1,136 @@
-//! Utilities for queries
+//! Queries
 
-use crate::orm::DbValue;
+mod comp;
+mod crud;
+mod data;
+mod exec;
+mod fmt;
+mod result;
+mod sql;
+mod stmt;
 
-/// Query structure
-#[derive(Debug, Clone)]
+#[cfg(test)]
+mod tests;
+
+pub use comp::*;
+pub use crud::*;
+pub use data::*;
+pub use exec::*;
+pub use fmt::*;
+pub use result::*;
+pub use sql::*;
+pub use stmt::*;
+
+use crate::value::{ChValue, Value};
+
+/// Query
+///
+/// A Query object is a complete representation of a query
+#[derive(Default, Debug)]
 pub struct Query {
-    /// Base query
-    pub base_query: String,
-    /// Where condition
-    pub where_cond: Option<Where>,
+    /// Statement (eg SELECT * FROM ...)
+    pub statement: String,
+    /// Data
+    pub data: Option<QueryData>,
+    /// Target DB
+    pub db: Option<String>,
+    /// Credentials (username, password)
+    pub credentials: Option<(String, String)>,
+    /// Format
+    pub format: Option<Format>,
+    /// Compress the request
+    pub compress_request: Option<Compression>,
+    /// Compress the HTTP response
+    pub compress_response: Option<Compression>,
 }
 
 impl Query {
-    /// Instantiates a new query
-    pub fn new(base_query_str: &str) -> Self {
-        Self {
-            base_query: base_query_str.to_string(),
-            where_cond: None,
+    /// Creates a new builder
+    pub fn new(stmt: &str) -> Self {
+        Query {
+            statement: stmt.to_string(),
+            data: None,
+            db: None,
+            credentials: None,
+            format: None,
+            compress_request: None,
+            compress_response: None,
         }
     }
 
-    /// Adds a where condition
-    pub fn with_where(mut self, where_cond: Where) -> Self {
-        self.where_cond = Some(where_cond);
-        self
-    }
-}
-
-impl From<String> for Query {
-    fn from(value: String) -> Self {
-        Query::new(&value)
-    }
-}
-
-impl std::fmt::Display for Query {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.base_query,
-            self.where_cond.clone().unwrap_or_default()
-        )
-    }
-}
-
-/// Where condition
-#[derive(Debug, Clone, Default)]
-pub struct Where {
-    /// Statement (prefix, column, condition, value)
-    statements: Vec<(String, String, String, String)>,
-}
-
-impl Where {
-    /// Instantiates with 1 condition
-    pub fn new(col: &str, condition: &str, value: impl DbValue) -> Self {
-        let mut where_cond = Self::default();
-        where_cond.add_raw_statement("", col, condition, value.to_sql_str().as_str());
-        where_cond
-    }
-
-    /// Instantiates an empty condition
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    /// Adds an AND statement
-    pub fn and(mut self, col: &str, condition: &str, value: impl DbValue) -> Self {
-        self.add_raw_statement("AND", col, condition, value.to_sql_str().as_str());
+    /// Asssigns a statement
+    pub fn statement(mut self, stmt: &str) -> Self {
+        self.statement = stmt.to_string();
         self
     }
 
-    /// Adds an OR statement
-    pub fn or(mut self, col: &str, condition: &str, value: impl DbValue) -> Self {
-        self.add_raw_statement("OR", col, condition, value.to_sql_str().as_str());
+    /// Asssigns the query data
+    pub fn data(mut self, table: QueryData) -> Self {
+        self.data = Some(table);
         self
     }
 
-    /// Adds a raw statement to a WHERE condition
-    fn add_raw_statement(&mut self, prefix: &str, column: &str, condition: &str, value: &str) {
-        self.statements.push((
-            prefix.to_string(),
-            column.to_string(),
-            condition.to_string(),
-            value.to_string(),
-        ))
+    /// Binds the statement with a [ChValue]
+    ///
+    /// Query parameters are defined by `??`
+    pub fn bind_val(mut self, value: impl ChValue) -> Self {
+        self.statement = self.statement.bind_val(value);
+        self
     }
-}
 
-impl std::fmt::Display for Where {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.statements.is_empty() {
-            let s = self
-                .statements
-                .iter()
-                .map(|(prefix, col, condition, value)| {
-                    format!(
-                        "{}({} {} {})",
-                        if !prefix.is_empty() {
-                            format!("{} ", prefix)
-                        } else {
-                            "".to_string()
-                        },
-                        col,
-                        condition,
-                        value
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(" ");
-            write!(f, " WHERE {s}")
-        } else {
-            write!(f, "")
-        }
+    /// Binds the statement with a raw query value
+    ///
+    /// For instance, strings are not enclosed by `'`.
+    ///
+    /// Query parameters are defined by `??`
+    pub fn bind_str(mut self, value: &str) -> Self {
+        self.statement = self.statement.bind_str(value);
+        self
+    }
+
+    /// Binds the statement with a list of values
+    pub fn bind_val_list(mut self, values: Vec<Value>) -> Self {
+        self.statement = self.statement.bind_val_list(values);
+        self
+    }
+
+    /// Binds the statement with a list of valeus as strings
+    pub fn bind_str_list(mut self, values: Vec<&str>) -> Self {
+        self.statement = self.statement.bind_str_list(values);
+        self
+    }
+
+    /// Assigns a target DB
+    pub fn db(mut self, db: &str) -> Self {
+        self.db = Some(db.to_string());
+        self
+    }
+
+    /// Assigns the credentials
+    pub fn credentials(mut self, username: &str, password: &str) -> Self {
+        self.credentials = Some((username.to_string(), password.to_string()));
+        self
+    }
+
+    /// Assigns a format
+    ///
+    /// Eg. RowBinary
+    pub fn format(mut self, format: Format) -> Self {
+        self.format = Some(format);
+        self
+    }
+
+    /// Compress the HTTP request
+    ///
+    /// Eg. RowBinary
+    pub fn compress_request(mut self, compression: Compression) -> Self {
+        self.compress_request = Some(compression);
+        self
+    }
+
+    /// Compress the HTTP response
+    pub fn compress_response(mut self, compression: Compression) -> Self {
+        self.compress_response = Some(compression);
+        self
     }
 }
