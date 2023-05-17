@@ -2,11 +2,23 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.13.0] - 2023-05-17
+
+### Bug fixes
+
+- fix: removed unnecessary schema to create_db method [0702b7c](https://github.com/nlargueze/clickhouse-client.git/commit/0702b7c93c2582b4d394d8e0b4da3566415dcfac)
+
 ## [v0.12.0] - 2023-05-17
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.12.0
 
 ### Bug fixes
 
 - fix: added missing instrumentation [948ba1a](https://github.com/nlargueze/clickhouse-client.git/commit/948ba1a3137b6ffb0718526f08f26a7c6bcfae2f)
+
+### Uncategorized
+
+- chore(release): Release v0.12.0 [dd990c1](https://github.com/nlargueze/clickhouse-client.git/commit/dd990c1867153eaf93e907d22d61909b53afc34a)
 
 ## [v0.11.0] - 2023-05-17
 
