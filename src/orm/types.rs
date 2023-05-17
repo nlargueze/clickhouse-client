@@ -104,7 +104,7 @@ macro_rules! impl_db_map_variant {
                 format!(
                     "{{{}}}",
                     self.iter()
-                        .map(|(k, v)| format!("'{}':{}", k, v.to_sql_str()))
+                        .map(|(k, v)| format!("{}:{}", k.to_sql_str(), v.to_sql_str()))
                         .collect::<Vec<_>>()
                         .join(",")
                 )
@@ -125,11 +125,16 @@ macro_rules! impl_db_map_variant {
                         // item is 'key1':1
                         match part.split_once(':') {
                             Some((k, v)) => {
+                                let k = match String::from_sql_str(k) {
+                                    Ok(k) => k,
+                                    Err(err) => return Err(err),
+                                };
+
                                 let v = match <$TY as DbValue>::from_sql_str(v) {
                                     Ok(v) => v,
                                     Err(err) => return Err(err),
                                 };
-                                Ok((k.to_string(), v))
+                                Ok((k, v))
                             }
                             None => Err("Invalid map".to_string()),
                         }
@@ -227,15 +232,17 @@ mod time {
             let date_utc = self.to_offset(UtcOffset::UTC);
             let format =
                 format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
-            format!("'{}'", date_utc.format(format).unwrap())
+            let tims_str = date_utc.format(format).expect("invalid datetime");
+            tims_str.to_sql_str()
         }
 
         fn from_sql_str(s: &str) -> Result<Self, String> {
-            let s = s.strip_prefix('\'').unwrap_or(s);
-            let s = s.strip_suffix('\'').unwrap_or(s);
+            let date_str = String::from_sql_str(s)?;
             let format =
                 format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
-            let prim_dt = PrimitiveDateTime::parse(s, &format).map_err(|e| e.to_string())?;
+
+            let prim_dt =
+                PrimitiveDateTime::parse(&date_str, &format).map_err(|e| e.to_string())?;
             Ok(prim_dt.assume_offset(UtcOffset::UTC))
         }
     }
@@ -256,11 +263,12 @@ mod uuid {
 
     impl DbValue for Uuid {
         fn to_sql_str(&self) -> String {
-            format!("'{self}'")
+            self.to_string().to_sql_str()
         }
 
         fn from_sql_str(s: &str) -> Result<Self, String> {
-            s.parse::<Uuid>().map_err(|e| e.to_string())
+            let uuid_str = String::from_sql_str(s)?;
+            uuid_str.parse::<Uuid>().map_err(|e| e.to_string())
         }
     }
 }
