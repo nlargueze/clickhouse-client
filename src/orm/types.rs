@@ -186,10 +186,17 @@ impl DbType for String {
 impl DbValue for String {
     fn to_sql_str(&self) -> String {
         // NB: strings must be enclosed by '
-        format!("'{}'", self)
+        // at least, the characters `'` and `\` must be escaped with a leading `\`
+        // cf. https://clickhouse.com/docs/en/sql-reference/syntax
+        let s = self.clone();
+        let s = s.replace('\'', r"\'");
+        let s = s.replace('\\', r"\\");
+        format!("'{s}'")
     }
 
     fn from_sql_str(s: &str) -> Result<Self, String> {
+        let s = s.strip_prefix('\'').unwrap_or(s);
+        let s = s.strip_suffix('\'').unwrap_or(s);
         s.parse::<String>().map_err(|e| e.to_string())
     }
 }
@@ -224,6 +231,8 @@ mod time {
         }
 
         fn from_sql_str(s: &str) -> Result<Self, String> {
+            let s = s.strip_prefix('\'').unwrap_or(s);
+            let s = s.strip_suffix('\'').unwrap_or(s);
             let format =
                 format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
             let prim_dt = PrimitiveDateTime::parse(s, &format).map_err(|e| e.to_string())?;
