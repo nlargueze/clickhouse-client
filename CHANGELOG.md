@@ -2,7 +2,19 @@
     
 All notable changes to this project will be documented in this file.
 
-## [v0.11.0] - 2023-05-16
+## [v0.12.0] - 2023-05-17
+
+### Bug fixes
+
+- fix: added missing instrumentation [948ba1a](https://github.com/nlargueze/clickhouse-client.git/commit/948ba1a3137b6ffb0718526f08f26a7c6bcfae2f)
+
+## [v0.11.0] - 2023-05-17
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.11.0
+
+### Uncategorized
+
+- chore(release): Release v0.11.0 [ebfcc85](https://github.com/nlargueze/clickhouse-client.git/commit/ebfcc85cf27f268695b97a153b69027f1053b501)
 
 ## [v0.10.0] - 2023-05-16
 
