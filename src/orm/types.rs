@@ -189,8 +189,8 @@ impl DbValue for String {
         // at least, the characters `'` and `\` must be escaped with a leading `\`
         // cf. https://clickhouse.com/docs/en/sql-reference/syntax
         let s = self.clone();
+        let s = s.replace('\\', r"\\"); // NB: this has to go first
         let s = s.replace('\'', r"\'");
-        let s = s.replace('\\', r"\\");
         format!("'{s}'")
     }
 
