@@ -17,31 +17,26 @@ use interface::{http::Http, Interface};
 
 pub mod error;
 pub mod interface;
-pub mod orm;
 pub mod query;
 pub mod schema;
 
 /// Clickhouse client
-pub struct Client {
+pub struct Client<T>
+where
+    T: Interface,
+{
     /// Database
     pub db: Option<String>,
     /// Credentials
     pub credentials: Option<(String, String)>,
     /// Interface
-    pub interface: Box<dyn Interface>,
+    pub interface: T,
 }
 
-impl Client {
-    /// Creates a new client (HTTP interface by default)
-    pub fn new(url: &str) -> Self {
-        let interface = Box::new(Http::new(url));
-        Self {
-            db: None,
-            credentials: None,
-            interface,
-        }
-    }
-
+impl<T> Client<T>
+where
+    T: Interface,
+{
     /// Sets the target database
     pub fn database(mut self, db: &str) -> Self {
         self.db = Some(db.to_string());
@@ -55,18 +50,58 @@ impl Client {
     }
 }
 
+impl Default for Client<Http> {
+    fn default() -> Client<Http> {
+        let interface = Http::new("http://localhost:8123");
+        Self {
+            db: None,
+            credentials: Default::default(),
+            interface,
+        }
+    }
+}
+
+impl<T> std::fmt::Debug for Client<T>
+where
+    T: Interface + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("db", &self.db)
+            .field("credentials", &self.credentials)
+            .field("interface", &self.interface)
+            .finish()
+    }
+}
+
+impl<T> Clone for Client<T>
+where
+    T: Interface + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            db: self.db.clone(),
+            credentials: self.credentials.clone(),
+            interface: self.interface.clone(),
+        }
+    }
+}
+
+/// Client with the HTTP interface
+pub type HttpClient = Client<Http>;
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Once;
-
+    use crate::{schema::TableSchema, Client, HttpClient};
+    use tokio::sync::OnceCell;
     use tracing_ext::sub::PrettyConsoleLayer;
     use tracing_subscriber::{prelude::*, EnvFilter};
 
-    static INIT: Once = Once::new();
+    static INIT: OnceCell<HttpClient> = OnceCell::const_new();
 
-    /// Initializes a tracer for unit tests
-    pub(crate) fn init_tracer() {
-        INIT.call_once(|| {
+    /// Initializes a client (and a tracer, and a test table)
+    pub(crate) async fn init() -> &'static HttpClient {
+        INIT.get_or_init(|| async {
             let layer_pretty_stdout = PrettyConsoleLayer::default()
                 .wrapped(true)
                 .oneline(false)
@@ -82,6 +117,45 @@ mod tests {
                 .with(layer_pretty_stdout)
                 .with(filter_layer)
                 .init();
-        });
+
+            let client = Client::default().database("test");
+            client.create_db("test").await.unwrap();
+
+            let schema = TableSchema::new("tests")
+                .new_column("uuid", "UUID", true)
+                .new_column("string", "String", false)
+                .new_column("uint8", "UInt8", false)
+                .new_column("date", "Date", false)
+                .new_column("date32", "Date32", false)
+                .new_column("datetime", "DateTime", false)
+                .new_column("datetime64", "DateTime64", false);
+            client.ddl().drop_table("tests").await.unwrap();
+            client
+                .ddl()
+                .create_table(&schema, "MergeTree()")
+                .await
+                .unwrap();
+            client
+                .query(
+                    "
+                INSERT INTO tests (uuid, string, uint8, date, date32, datetime, datetime64) 
+                VALUES (
+                '63712f62-a87a-4d0f-9673-a17380428dc4', 
+                'john', 
+                1, 
+                '1970-01-01', 
+                '1971-01-01', 
+                '1972-01-01 00:00:00',
+                '1973-01-01 00:00:00.0'
+                )
+                ",
+                )
+                .exec()
+                .await
+                .unwrap();
+
+            client
+        })
+        .await
     }
 }

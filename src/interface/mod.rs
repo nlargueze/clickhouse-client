@@ -4,43 +4,20 @@
 
 use async_trait::async_trait;
 
-use crate::{error::Error, query::Query, Client};
+use crate::{error::Error, Client};
 
 pub mod http;
 
-/// An interface is a means of communicating with the database
-#[async_trait]
-pub trait Interface: Send + Sync {
-    /// Sends a ping request
-    async fn ping(&self) -> bool;
-
-    /// Sends a query, and returns results as string
-    async fn send_raw_query(
-        &self,
-        query: &str,
-        options: SendRawQueryOptions,
-    ) -> Result<Vec<u8>, Error>;
-}
-
-/// Options for the `send_raw_query` interface method
+/// Options for the `raw_query` interface method
 #[derive(Default)]
-pub struct SendRawQueryOptions {
+pub struct RawQueryOptions {
     /// DB
     pub db: Option<String>,
     /// Credentials
     pub credentials: Option<(String, String)>,
 }
 
-// NB: we need to implement this manually to exclude credentials
-impl std::fmt::Debug for SendRawQueryOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SendRawQueryOptions")
-            .field("db", &self.db)
-            .finish()
-    }
-}
-
-impl SendRawQueryOptions {
+impl RawQueryOptions {
     /// Creates a new SendRawQueryOptions
     pub fn new() -> Self {
         Self::default()
@@ -59,25 +36,48 @@ impl SendRawQueryOptions {
     }
 }
 
-impl Client {
+// NB: we need to implement this manually to exclude credentials
+impl std::fmt::Debug for RawQueryOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SendRawQueryOptions")
+            .field("db", &self.db)
+            .finish()
+    }
+}
+
+/// An interface is a means of communicating with the database
+#[async_trait]
+pub trait Interface: Send + Sync {
+    /// Sends a query, and returns results as string
+    async fn raw_query(&self, query: &str, options: RawQueryOptions) -> Result<Vec<u8>, Error>;
+
+    /// Sends a ping request
+    async fn ping(&self) -> bool;
+}
+
+impl<F> Client<F>
+where
+    F: Interface,
+{
     /// Pings the DB
     #[tracing::instrument(skip_all)]
     pub async fn ping(&self) -> bool {
         self.interface.ping().await
     }
 
-    /// Sends a query
-    #[tracing::instrument(skip_all)]
-    pub async fn send_query(&self, query: Query) -> Result<Vec<u8>, Error> {
-        let options = self.send_raw_query_opts();
-        self.interface
-            .send_raw_query(query.to_string().as_str(), options)
-            .await
+    /// Creates a database
+    #[tracing::instrument(skip(self))]
+    pub async fn create_db(&self, db: &str) -> Result<(), Error> {
+        let query = format!("CREATE DATABASE IF NOT EXISTS {}", db);
+        let mut opts = self.raw_query_opts();
+        opts.db = None;
+        let _res_bytes = self.interface.raw_query(&query, opts).await?;
+        Ok(())
     }
 
     /// Returns the raw query options from the client
-    pub(crate) fn send_raw_query_opts(&self) -> SendRawQueryOptions {
-        SendRawQueryOptions {
+    pub(crate) fn raw_query_opts(&self) -> RawQueryOptions {
+        RawQueryOptions {
             db: self.db.clone(),
             credentials: self.credentials.clone(),
         }

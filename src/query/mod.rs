@@ -1,116 +1,97 @@
-//! Utilities for queries
+//! Queries
 
-use crate::orm::DbValue;
+use crate::{error::Error, interface::Interface, Client};
 
-/// Query structure
-#[derive(Debug, Clone)]
-pub struct Query {
-    /// Base query
-    pub base_query: String,
-    /// Where condition
-    pub where_cond: Option<Where>,
-}
+pub mod ddl;
+pub mod format;
+// mod orm;
 
-impl Query {
-    /// Instantiates a new query
-    pub fn new(base_query_str: &str) -> Self {
-        Self {
-            base_query: base_query_str.to_string(),
-            where_cond: None,
+pub use format::*;
+pub use sql::*;
+
+impl<T> Client<T>
+where
+    T: Interface,
+{
+    /// Prepares a query
+    pub fn query(&self, query: &str) -> QueryExecutor<T> {
+        QueryExecutor {
+            raw_query: query.to_string(),
+            client: self,
         }
     }
+}
 
-    /// Adds a where condition
-    pub fn with_where(mut self, where_cond: Where) -> Self {
-        self.where_cond = Some(where_cond);
+/// Query executor
+pub struct QueryExecutor<'a, T>
+where
+    T: Interface,
+{
+    /// Raw query
+    raw_query: String,
+    /// Client
+    client: &'a Client<T>,
+}
+
+impl<'a, T> QueryExecutor<'a, T>
+where
+    T: Interface,
+{
+    const QUERY_PARAM_KEY: &str = "??";
+
+    /// Binds the raw query with query parameters
+    ///
+    /// Query parameters are defined by `??`
+    pub fn bind(mut self, value: impl ToSqlString) -> Self {
+        self.raw_query =
+            self.raw_query
+                .replacen(Self::QUERY_PARAM_KEY, value.to_sql_string().as_str(), 1);
         self
     }
-}
 
-impl From<String> for Query {
-    fn from(value: String) -> Self {
-        Query::new(&value)
+    /// Binds the raw query with raw query parameters
+    ///
+    /// For instance, strings are not enclosed by `'`.
+    ///
+    /// Query parameters are defined by `??`
+    pub fn bind_raw(mut self, value: &str) -> Self {
+        self.raw_query = self.raw_query.replacen(Self::QUERY_PARAM_KEY, value, 1);
+        self
+    }
+
+    /// Executes the query
+    #[tracing::instrument(skip(self))]
+    pub async fn exec(self) -> Result<Vec<u8>, Error> {
+        self.client
+            .interface
+            .raw_query(&self.raw_query, self.client.raw_query_opts())
+            .await
     }
 }
 
-impl std::fmt::Display for Query {
+impl<'a, T> std::fmt::Debug for QueryExecutor<'a, T>
+where
+    T: Interface + std::fmt::Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.base_query,
-            self.where_cond.clone().unwrap_or_default()
-        )
+        f.debug_struct("QueryExecutor")
+            .field("raw_query", &self.raw_query)
+            .field("raw_query_options", &self.client.raw_query_opts())
+            .field("interface", &self.client)
+            .finish()
     }
 }
 
-/// Where condition
-#[derive(Debug, Clone, Default)]
-pub struct Where {
-    /// Statement (prefix, column, condition, value)
-    statements: Vec<(String, String, String, String)>,
-}
-
-impl Where {
-    /// Instantiates with 1 condition
-    pub fn new(col: &str, condition: &str, value: impl DbValue) -> Self {
-        let mut where_cond = Self::default();
-        where_cond.add_raw_statement("", col, condition, value.to_sql_str().as_str());
-        where_cond
-    }
-
-    /// Instantiates an empty condition
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    /// Adds an AND statement
-    pub fn and(mut self, col: &str, condition: &str, value: impl DbValue) -> Self {
-        self.add_raw_statement("AND", col, condition, value.to_sql_str().as_str());
-        self
-    }
-
-    /// Adds an OR statement
-    pub fn or(mut self, col: &str, condition: &str, value: impl DbValue) -> Self {
-        self.add_raw_statement("OR", col, condition, value.to_sql_str().as_str());
-        self
-    }
-
-    /// Adds a raw statement to a WHERE condition
-    fn add_raw_statement(&mut self, prefix: &str, column: &str, condition: &str, value: &str) {
-        self.statements.push((
-            prefix.to_string(),
-            column.to_string(),
-            condition.to_string(),
-            value.to_string(),
-        ))
-    }
-}
-
-impl std::fmt::Display for Where {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.statements.is_empty() {
-            let s = self
-                .statements
-                .iter()
-                .map(|(prefix, col, condition, value)| {
-                    format!(
-                        "{}({} {} {})",
-                        if !prefix.is_empty() {
-                            format!("{} ", prefix)
-                        } else {
-                            "".to_string()
-                        },
-                        col,
-                        condition,
-                        value
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(" ");
-            write!(f, " WHERE {s}")
-        } else {
-            write!(f, "")
-        }
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_query_simple() {
+        let client = crate::tests::init().await;
+        client
+            .query("SELECT * FROM tests WHERE uuid = ??")
+            .bind("6f2f0129-7956-4d73-80b8-1860fbe1121a")
+            .exec()
+            .await
+            .unwrap();
     }
 }

@@ -4,24 +4,9 @@
 //!
 //! Types are defined at [https://clickhouse.com/docs/en/sql-reference/data-types](https://clickhouse.com/docs/en/sql-reference/data-types).
 
-use std::{collections::HashMap, fmt::Debug};
+use std::collections::HashMap;
 
-/// Trait to represent a Clickhouse cell type
-pub trait DbType: Debug {
-    /// Clickhouse cell type
-    const TYPE: &'static str;
-}
-
-/// Trait to represent a Clickhouse cell value
-pub trait DbValue: Debug {
-    /// Converts a type to a SQL string
-    fn to_sql_str(&self) -> String;
-
-    /// Parses from a SQL string
-    fn from_sql_str(s: &str) -> Result<Self, String>
-    where
-        Self: Sized;
-}
+use super::DbType;
 
 /// Implements the nullable variant of a db type
 macro_rules! impl_db_nullable_variant {
@@ -30,7 +15,7 @@ macro_rules! impl_db_nullable_variant {
             const TYPE: &'static str = concat!("Nullable(", $DB_TY, ")");
         }
 
-        impl DbValue for Option<$TY> {
+        impl DbType for Option<$TY> {
             fn to_sql_str(&self) -> String {
                 match self {
                     Some(value) => value.to_sql_str(),
@@ -42,7 +27,7 @@ macro_rules! impl_db_nullable_variant {
                 match s {
                     // NB: it seems to be the returned NULL value in Clickhouse
                     r"\N" => Ok(None),
-                    _ => <$TY as DbValue>::from_sql_str(s).map(|x| Some(x)),
+                    _ => <$TY as DbType>::from_sql_str(s).map(|x| Some(x)),
                 }
             }
         }
@@ -56,9 +41,9 @@ macro_rules! impl_db_array_variant {
             const TYPE: &'static str = concat!("Array(", $DB_TY, ")");
         }
 
-        impl DbValue for Vec<$TY>
+        impl DbType for Vec<$TY>
         where
-            $TY: DbValue,
+            $TY: DbType,
         {
             fn to_sql_str(&self) -> String {
                 format!(
@@ -66,7 +51,7 @@ macro_rules! impl_db_array_variant {
                     self.iter()
                         .map(|x| x.to_sql_str())
                         .collect::<Vec<_>>()
-                        .join(",")
+                        .join(", ")
                 )
             }
 
@@ -81,7 +66,7 @@ macro_rules! impl_db_array_variant {
                 };
                 s.split(",")
                     .into_iter()
-                    .map(|v_str| <$TY as DbValue>::from_sql_str(v_str))
+                    .map(|v_str| <$TY as DbType>::from_sql_str(v_str))
                     .collect::<Result<Vec<_>, String>>()
             }
         }
@@ -95,9 +80,9 @@ macro_rules! impl_db_map_variant {
             const TYPE: &'static str = concat!("Map(String, ", $DB_TY, ")");
         }
 
-        impl DbValue for HashMap<String, $TY>
+        impl DbType for HashMap<String, $TY>
         where
-            $TY: DbValue,
+            $TY: DbType,
         {
             fn to_sql_str(&self) -> String {
                 // {'key1':1, 'key2':10}
@@ -152,7 +137,7 @@ macro_rules! impl_db_base_type {
             const TYPE: &'static str = $DB_TY;
         }
 
-        impl DbValue for $TY {
+        impl DbType for $TY {
             fn to_sql_str(&self) -> String {
                 self.to_string()
             }
@@ -169,106 +154,7 @@ macro_rules! impl_db_base_type {
 }
 
 // base types
-impl_db_base_type!(u8, "UInt8");
-impl_db_base_type!(u16, "UInt16");
-impl_db_base_type!(u32, "UInt32");
-impl_db_base_type!(u64, "UInt64");
-impl_db_base_type!(u128, "UInt128");
-impl_db_base_type!(i8, "Int8");
-impl_db_base_type!(i16, "Int16");
-impl_db_base_type!(i32, "Int32");
-impl_db_base_type!(i64, "Int64");
-impl_db_base_type!(i128, "Int128");
-impl_db_base_type!(f32, "Float32");
-impl_db_base_type!(f64, "Float64");
-impl_db_base_type!(bool, "Boolean");
-
-// string
-impl DbType for String {
-    const TYPE: &'static str = "String";
-}
-
-impl DbValue for String {
-    fn to_sql_str(&self) -> String {
-        // NB: strings must be enclosed by '
-        // at least, the characters `'` and `\` must be escaped with a leading `\`
-        // cf. https://clickhouse.com/docs/en/sql-reference/syntax
-        let s = self.clone();
-        let s = s.replace('\\', r"\\"); // NB: this has to go first
-        let s = s.replace('\'', r"\'");
-        format!("'{s}'")
-    }
-
-    fn from_sql_str(s: &str) -> Result<Self, String> {
-        let s = s.strip_prefix('\'').unwrap_or(s);
-        let s = s.strip_suffix('\'').unwrap_or(s);
-        s.parse::<String>().map_err(|e| e.to_string())
-    }
-}
 
 impl_db_nullable_variant!(String, "String");
 impl_db_array_variant!(String, "String");
 impl_db_map_variant!(String, "String");
-
-// enum
-/// Extension for the `time` crate
-#[cfg(feature = "time")]
-mod time {
-    use super::*;
-
-    use ::time::{macros::format_description, OffsetDateTime, PrimitiveDateTime, UtcOffset};
-
-    impl DbType for OffsetDateTime {
-        const TYPE: &'static str = "DateTime64(9)";
-    }
-
-    impl DbValue for OffsetDateTime {
-        fn to_sql_str(&self) -> String {
-            // NB: CLickhouse accept the format
-            // - '2023-05-06 20:03:15'
-            // - Unix timestamp
-            //
-            // NB2: Clickhouse accepts only UTC dates (the timezone is a column metadata)
-            let date_utc = self.to_offset(UtcOffset::UTC);
-            let format =
-                format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
-            let tims_str = date_utc.format(format).expect("invalid datetime");
-            tims_str.to_sql_str()
-        }
-
-        fn from_sql_str(s: &str) -> Result<Self, String> {
-            let date_str = String::from_sql_str(s)?;
-            let format =
-                format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
-
-            let prim_dt =
-                PrimitiveDateTime::parse(&date_str, &format).map_err(|e| e.to_string())?;
-            Ok(prim_dt.assume_offset(UtcOffset::UTC))
-        }
-    }
-
-    impl_db_nullable_variant!(OffsetDateTime, "DateTime64");
-}
-
-/// Extension for the `uuid` crate
-#[cfg(feature = "uuid")]
-mod uuid {
-    use super::*;
-
-    use ::uuid::Uuid;
-
-    impl DbType for Uuid {
-        const TYPE: &'static str = "UUID";
-    }
-
-    impl DbValue for Uuid {
-        fn to_sql_str(&self) -> String {
-            self.to_string().to_sql_str()
-        }
-
-        fn from_sql_str(s: &str) -> Result<Self, String> {
-            let uuid_str = String::from_sql_str(s)?;
-            uuid_str.parse::<Uuid>().map_err(|e| e.to_string())
-        }
-    }
-}

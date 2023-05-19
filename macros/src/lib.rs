@@ -13,8 +13,8 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 ///
 /// # Prerequisites
 ///
-/// - each field Rust type must implement the trait `DbType` and `DbValue`
-/// - The following elements must be in scope: `DbRecordExt`, `DbType`, `DbValue`, `TableSchema`, `ColumnSchema`
+/// - each field Rust type must implement the trait `DbTypeExt`
+/// - The following elements must be in scope: `DbRecordExt`, `DbTypeExt`, `TableSchema`, `ColSchema`, `phf`
 ///
 /// # Attributes
 ///
@@ -79,11 +79,11 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 
         if !field_attrs.skip {
             table_cols.push(quote! {
-                .column(ColumnSchema {
-                    name: #col_name.to_string(),
-                    ty: <#field_type as DbType>::TYPE.to_string(),
+                #col_name => ColSchema {
+                    id: #col_name,
+                    ty: <#field_type as DbTypeExt>::DB_TYPE,
                     is_primary: #col_is_primary,
-                })
+                }
             });
             map_insert_values.push(quote! {
                 map.insert(#col_name, Box::new(&self.#field_id));
@@ -102,26 +102,28 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 
     quote! {
         impl DbRecordExt for #ident {
-            fn db_schema() -> TableSchema {
-                TableSchema::new(#table_name)
-                #(#table_cols)*
-            }
+            const DB_TABLE: TableSchema = TableSchema::new(
+                #table_name,
+                phf::phf_map! {
+                    #(#table_cols),*
+                },
+            );
 
-            fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbValue>> {
-                // NB: map must be typed, otherwise it infers the value type from the 1st inserted value
-                let mut map: ::std::collections::HashMap<&str, Box<&'_ dyn DbValue>> = ::std::collections::HashMap::new();
-                #(#map_insert_values) *
-                map
-            }
+            // fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbValue>> {
+            //     // NB: map must be typed, otherwise it infers the value type from the 1st inserted value
+            //     let mut map: ::std::collections::HashMap<&str, Box<&'_ dyn DbValue>> = ::std::collections::HashMap::new();
+            //     #(#map_insert_values) *
+            //     map
+            // }
 
-            fn from_db_values(values: ::std::collections::HashMap<&str, &str>) -> ::std::result::Result<Self, String>
-            where
-                Self: Sized + Default
-            {
-                let mut record = Self::default();
-                #(#set_record_fields) *
-                Ok(record)
-            }
+            // fn from_db_values(values: ::std::collections::HashMap<&str, &str>) -> ::std::result::Result<Self, String>
+            // where
+            //     Self: Sized + Default
+            // {
+            //     let mut record = Self::default();
+            //     #(#set_record_fields) *
+            //     Ok(record)
+            // }
         }
     }
     .into()

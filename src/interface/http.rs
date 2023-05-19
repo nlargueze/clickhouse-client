@@ -3,20 +3,21 @@
 //! The HTTP interface is documented at: [https://clickhouse.com/docs/en/interfaces/http](https://clickhouse.com/docs/en/interfaces/http).
 
 use async_trait::async_trait;
-use hyper::{Body, Request, Uri};
+use hyper::{body::Bytes, Body, Request, Uri};
 
 use crate::error::Error;
 
-use super::{Interface, SendRawQueryOptions};
+use super::{Interface, RawQueryOptions};
 
-type HttpClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
+type HyperHttpsClient = hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
 
 /// HTTP interface
+#[derive(Debug)]
 pub struct Http {
     /// URL
     url: Uri,
     /// HTTP client
-    http_client: HttpClient,
+    http_client: HyperHttpsClient,
 }
 
 impl Http {
@@ -52,11 +53,7 @@ impl Interface for Http {
     }
 
     #[tracing::instrument(skip(self))]
-    async fn send_raw_query(
-        &self,
-        query: &str,
-        options: SendRawQueryOptions,
-    ) -> Result<Vec<u8>, Error> {
+    async fn raw_query(&self, query: &str, options: RawQueryOptions) -> Result<Vec<u8>, Error> {
         let mut req_builder = hyper::Request::builder().uri(&self.url).method("POST");
 
         if let Some(db) = options.db {
@@ -71,7 +68,7 @@ impl Interface for Http {
             req_builder = req_builder.header(HEADER_PASSWORD, password);
         }
 
-        let body = Body::from(query.to_string());
+        let body = Body::from(Bytes::from(query.to_string()));
         let req = req_builder.body(body)?;
 
         let res = self.http_client.request(req).await?;
@@ -90,33 +87,23 @@ impl Interface for Http {
 
 #[cfg(test)]
 mod tests {
-    use tokio::sync::OnceCell;
-
-    use crate::Client;
-
-    static INIT: OnceCell<Client> = OnceCell::const_new();
-
-    async fn init() -> &'static Client {
-        crate::tests::init_tracer();
-        INIT.get_or_init(|| async { Client::new("http://localhost:8123").database("test") })
-            .await
-    }
+    use crate::interface::Interface;
 
     #[tokio::test]
     async fn test_http_ping() {
-        let client = init().await;
+        let client = crate::tests::init().await;
         assert!(client.ping().await);
     }
 
     #[tokio::test]
     #[tracing::instrument]
     async fn test_http_raw_query() {
-        let client = init().await;
+        let client = crate::tests::init().await;
 
         let raw_query = "SELECT 1";
         match client
             .interface
-            .send_raw_query(raw_query, client.send_raw_query_opts())
+            .raw_query(raw_query, client.raw_query_opts())
             .await
         {
             Ok(ok) => {
