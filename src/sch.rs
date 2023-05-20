@@ -1,8 +1,4 @@
-//! DB schema
-
-mod types;
-
-pub use types::*;
+//! Schemas
 
 /// Table schema
 #[derive(Debug)]

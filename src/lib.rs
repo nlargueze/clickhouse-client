@@ -18,7 +18,8 @@ use interface::{http::Http, Interface};
 pub mod error;
 pub mod interface;
 pub mod query;
-pub mod schema;
+pub mod sch;
+pub mod ty;
 
 /// Clickhouse client
 pub struct Client<T>
@@ -92,7 +93,7 @@ pub type HttpClient = Client<Http>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{schema::TableSchema, Client, HttpClient};
+    use crate::{sch::TableSchema, Client, HttpClient};
     use tokio::sync::OnceCell;
     use tracing_ext::sub::PrettyConsoleLayer;
     use tracing_subscriber::{prelude::*, EnvFilter};
@@ -128,7 +129,7 @@ mod tests {
                 .new_column("date", "Date", false)
                 .new_column("date32", "Date32", false)
                 .new_column("datetime", "DateTime", false)
-                .new_column("datetime64", "DateTime64", false);
+                .new_column("datetime64", "DateTime64(9)", false);
             client.ddl().drop_table("tests").await.unwrap();
             client
                 .ddl()

@@ -3,11 +3,12 @@
 use crate::{error::Error, interface::Interface, Client};
 
 pub mod ddl;
-pub mod format;
+mod fmt;
 // mod orm;
 
-pub use format::*;
-pub use sql::*;
+use fmt::sql::SqlSerializer;
+pub use fmt::*;
+use serde::Serialize;
 
 impl<T> Client<T>
 where
@@ -37,15 +38,15 @@ impl<'a, T> QueryExecutor<'a, T>
 where
     T: Interface,
 {
-    const QUERY_PARAM_KEY: &str = "??";
-
     /// Binds the raw query with query parameters
     ///
     /// Query parameters are defined by `??`
-    pub fn bind(mut self, value: impl ToSqlString) -> Self {
-        self.raw_query =
-            self.raw_query
-                .replacen(Self::QUERY_PARAM_KEY, value.to_sql_string().as_str(), 1);
+    pub fn bind(mut self, value: impl Serialize) -> Self {
+        let sql_serializer = SqlSerializer::new();
+        let value_str = value
+            .serialize(sql_serializer)
+            .expect("cannot serialize value to SQL");
+        self.replace_bind_symbol(&value_str);
         self
     }
 
@@ -55,7 +56,7 @@ where
     ///
     /// Query parameters are defined by `??`
     pub fn bind_raw(mut self, value: &str) -> Self {
-        self.raw_query = self.raw_query.replacen(Self::QUERY_PARAM_KEY, value, 1);
+        self.replace_bind_symbol(value);
         self
     }
 
@@ -66,6 +67,12 @@ where
             .interface
             .raw_query(&self.raw_query, self.client.raw_query_opts())
             .await
+    }
+
+    /// Replaces the bind symbol
+    fn replace_bind_symbol(&mut self, value: &str) {
+        const QUERY_PARAM_KEY: &str = "??";
+        self.raw_query = self.raw_query.replacen(QUERY_PARAM_KEY, value, 1);
     }
 }
 

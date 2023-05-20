@@ -1,6 +1,6 @@
 //! DDL
 
-use crate::{error::Error, interface::Interface, schema::TableSchema, Client};
+use crate::{error::Error, interface::Interface, sch::TableSchema, Client};
 
 impl<T> Client<T>
 where
@@ -35,7 +35,7 @@ where
         };
 
         self.client
-            .query("DROP TABLE ??")
+            .query("DROP TABLE IF EXISTS ??")
             .bind_raw(&table)
             .exec()
             .await?;
