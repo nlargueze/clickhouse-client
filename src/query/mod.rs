@@ -1,10 +1,12 @@
 //! Queries
 
-use crate::{error::Error, interface::Interface, Client};
+use crate::{error::Error, interface::Interface, orm::Value, Client};
 
 pub mod ddl;
 mod fmt;
-// mod orm;
+
+#[cfg(test)]
+mod tests;
 
 use fmt::sql::SqlSerializer;
 pub use fmt::*;
@@ -41,8 +43,9 @@ where
     /// Binds the raw query with query parameters
     ///
     /// Query parameters are defined by `??`
-    pub fn bind(mut self, value: impl Serialize) -> Self {
+    pub fn bind(mut self, value: impl Into<Value>) -> Self {
         let sql_serializer = SqlSerializer::new();
+        let value: Value = value.into();
         let value_str = value
             .serialize(sql_serializer)
             .expect("cannot serialize value to SQL");
@@ -86,19 +89,5 @@ where
             .field("raw_query_options", &self.client.raw_query_opts())
             .field("interface", &self.client)
             .finish()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[tokio::test]
-    async fn test_query_simple() {
-        let client = crate::tests::init().await;
-        client
-            .query("SELECT * FROM tests WHERE uuid = ??")
-            .bind("6f2f0129-7956-4d73-80b8-1860fbe1121a")
-            .exec()
-            .await
-            .unwrap();
     }
 }

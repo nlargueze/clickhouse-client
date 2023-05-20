@@ -17,9 +17,9 @@ use interface::{http::Http, Interface};
 
 pub mod error;
 pub mod interface;
+pub mod orm;
 pub mod query;
 pub mod sch;
-pub mod ty;
 
 /// Clickhouse client
 pub struct Client<T>
@@ -138,17 +138,17 @@ mod tests {
                 .unwrap();
             client
                 .query(
-                    "
-                INSERT INTO tests (uuid, string, uint8, date, date32, datetime, datetime64) 
-                VALUES (
-                '63712f62-a87a-4d0f-9673-a17380428dc4', 
-                'john', 
-                1, 
-                '1970-01-01', 
-                '1971-01-01', 
-                '1972-01-01 00:00:00',
-                '1973-01-01 00:00:00.0'
-                )
+                    "\
+                INSERT INTO tests (uuid, string, uint8, date, date32, datetime, datetime64) \
+                VALUES (\
+                '63712f62-a87a-4d0f-9673-a17380428dc4', \
+                'john', \
+                1, \
+                '1970-01-01', \
+                '1971-01-01', \
+                '1972-01-01 00:00:00', \
+                '1973-01-01 00:00:00.0'\
+                ) \
                 ",
                 )
                 .exec()

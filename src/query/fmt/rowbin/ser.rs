@@ -7,7 +7,7 @@ use serde::{Serialize, Serializer};
 use crate::error::Error;
 
 /// Serializer for the `RowBin` format
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct RowBinSerializer;
 
 impl RowBinSerializer {
@@ -178,7 +178,7 @@ impl serde::ser::SerializeStruct for RowBinSerializeStruct {
         T: serde::Serialize,
     {
         let serializer = RowBinSerializer::default();
-        let mut key = key.serialize(serializer.clone())?;
+        let mut key = key.serialize(serializer)?;
         let mut value = value.serialize(serializer)?;
         key.append(&mut value);
         self.values.push(key);

@@ -1,85 +1,28 @@
 //! Tests
 
-use crate::ty::time::{AsDate32, AsDateTime64};
+use super::SqlSerializer;
+use serde::Serialize;
 
 #[tokio::test]
-async fn test_query_sql_uuid() {
-    let client = crate::tests::init().await;
-    client
-        .query("SELECT * FROM tests WHERE uuid = ??")
-        .bind(::uuid::Uuid::new_v4())
-        .exec()
-        .await
-        .unwrap();
+#[cfg(feature = "uuid")]
+async fn test_fmt_sql_uuid() {
+    use uuid::Uuid;
+
+    let _ = crate::tests::init().await;
+    let serializer = SqlSerializer::new();
+
+    let uuid_str = "f753a6d7-5415-420e-ace2-711b000ac5a5";
+    let uuid = Uuid::parse_str(uuid_str).unwrap();
+    let uuid_ser = uuid.serialize(serializer).unwrap();
+    assert_eq!(uuid_ser, format!("'{uuid_str}'"));
 }
 
 #[tokio::test]
-async fn test_query_sql_int() {
-    let client = crate::tests::init().await;
-    client
-        .query("SELECT * FROM tests WHERE uint8 = ??")
-        .bind(1)
-        .exec()
-        .await
-        .unwrap();
-}
+async fn test_fmt_sql_u32() {
+    let _ = crate::tests::init().await;
+    let serializer = SqlSerializer::new();
 
-#[tokio::test]
-async fn test_query_sql_string() {
-    let client = crate::tests::init().await;
-    client
-        .query("SELECT * FROM tests WHERE string = ??")
-        .bind("abc")
-        .exec()
-        .await
-        .unwrap();
-}
-
-#[tokio::test]
-async fn test_query_sql_date() {
-    let client = crate::tests::init().await;
-    let date = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    client
-        .query("SELECT * FROM tests WHERE date = ??")
-        .bind(date.as_date32())
-        .exec()
-        .await
-        .unwrap();
-}
-
-#[tokio::test]
-async fn test_query_sql_date32() {
-    let client = crate::tests::init().await;
-    let date = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    client
-        .query("SELECT * FROM tests WHERE date32 = ??")
-        .bind(date.as_date32())
-        .exec()
-        .await
-        .unwrap();
-}
-
-#[tokio::test]
-#[should_panic]
-async fn test_query_sql_datetime() {
-    let client = crate::tests::init().await;
-    let date = time::OffsetDateTime::now_utc();
-    client
-        .query("SELECT * FROM tests WHERE datetime = ??")
-        .bind(date.as_datetime64())
-        .exec()
-        .await
-        .unwrap();
-}
-
-#[tokio::test]
-async fn test_query_sql_datetime64() {
-    let client = crate::tests::init().await;
-    let date = time::OffsetDateTime::now_utc();
-    client
-        .query("SELECT * FROM tests WHERE datetime64 = ??")
-        .bind(date.as_datetime64())
-        .exec()
-        .await
-        .unwrap();
+    let u = 10_u32;
+    let u_ser = u.serialize(serializer).unwrap();
+    assert_eq!(u_ser, u.to_string());
 }

@@ -7,7 +7,7 @@ use uuid::Uuid;
 use super::{de::RowBinDeserializer, ser::RowBinSerializer};
 
 #[tokio::test]
-async fn test_query_fmt_rowbin_ser_uuid() {
+async fn test_fmt_rowbin_ser_uuid() {
     let serializer = RowBinSerializer::default();
     let uuid = Uuid::new_v4();
     let bytes = uuid.serialize(serializer).unwrap();
@@ -15,7 +15,7 @@ async fn test_query_fmt_rowbin_ser_uuid() {
 }
 
 #[tokio::test]
-async fn test_query_fmt_rowbin_ser_u32() {
+async fn test_fmt_rowbin_ser_u32() {
     let i = 100_000_u32;
     let serializer = RowBinSerializer::default();
     let bytes = i.serialize(serializer).unwrap();
@@ -23,7 +23,7 @@ async fn test_query_fmt_rowbin_ser_u32() {
 }
 
 #[tokio::test]
-async fn test_query_fmt_rowbin_ser_str() {
+async fn test_fmt_rowbin_ser_str() {
     let s = "abcd";
     let serializer = RowBinSerializer::default();
     let bytes = s.serialize(serializer).unwrap();

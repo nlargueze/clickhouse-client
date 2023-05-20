@@ -2,7 +2,7 @@
 
 mod ser;
 
-pub use ser::*;
-
 #[cfg(test)]
 mod tests;
+
+pub use ser::*;

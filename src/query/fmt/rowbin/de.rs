@@ -7,7 +7,11 @@ use serde::{de::Visitor, Deserializer};
 use crate::error::Error;
 
 /// Deserializer for the `RowBin` format
-#[derive(Debug, Clone)]
+///
+/// # Notes
+///
+/// The Clone and Copy are shallow copies
+#[derive(Debug, Clone, Copy)]
 pub struct RowBinDeserializer<'a> {
     /// Buffer
     pub buffer: &'a [u8],
@@ -19,7 +23,7 @@ impl<'a> RowBinDeserializer<'a> {
         RowBinDeserializer { buffer: bytes }
     }
 
-    // Returns the remaining bytes
+    /// Returns the remaining bytes
     pub fn remaining(&self) -> &'a [u8] {
         self.buffer
     }
