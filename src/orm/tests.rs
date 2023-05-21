@@ -1,96 +1,196 @@
 //! Tests
 
-use super::Type;
+use clickhouse_client_macros::DbRecord;
 
-#[test]
-fn test_type_uint8() {
-    let ty = Type::UInt8;
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "UInt8");
+use crate::{
+    schema::{ColSchema, TableSchema},
+    HttpClient,
+};
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::UInt8);
-}
+use super::prelude::*;
 
-#[test]
-fn test_type_uint8_null() {
-    let ty = Type::NullableUInt8;
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Nullable(UInt8)");
+// /// Init
+// async fn init() -> &'static HttpClient {
+//     let client = crate::tests::init().await;
+//     INIT_DB
+//         .get_or_init(|| async {
+//             client
+//                 .orm::<TestRecord>()
+//                 .create_table("MergeTree()")
+//                 .await
+//                 .unwrap();
+//         })
+//         .await;
+//     client
+// }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::NullableUInt8);
-}
+// /// Test record
+// #[derive(DbRecord)]
+// #[db(table = "records")]
+// struct TestRecord {
+//     /// ID
+//     #[db(primary)]
+//     id: u8,
+//     /// Name
+//     name: String,
+// }
 
-#[test]
-fn test_type_dec() {
-    let ty = Type::Decimal(6, 2);
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Decimal(6,2)");
+// impl TestRecord {
+//     fn sample() -> Self {
+//         TestRecord {
+//             id: 1,
+//             name: "john".into(),
+//         }
+//     }
+// }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::Decimal(6, 2));
-}
+// #[tokio::test]
+// async fn test_orm_select() {
+//     let client = init().await;
+//     let res = client.orm::<TestRecord>().select(&[]).await.unwrap();
+// }
 
-#[test]
-fn test_type_dec32() {
-    let ty = Type::Decimal32(4);
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Decimal32(4)");
+// /// Test record
+// #[derive(Debug, DbRecord, Clone)]
+// #[db(table = "records")]
+// struct TestRecord {
+//     #[db(primary)]
+//     id: u32,
+//     name: String,
+//     timestamp: OffsetDateTime,
+//     metric: f32,
+//     null_int: Option<u8>,
+//     array: Vec<String>,
+// }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::Decimal32(4));
-}
+// impl Default for TestRecord {
+//     fn default() -> Self {
+//         Self {
+//             id: Default::default(),
+//             name: Default::default(),
+//             timestamp: OffsetDateTime::UNIX_EPOCH,
+//             metric: Default::default(),
+//             null_int: Default::default(),
+//             array: Vec::default(),
+//         }
+//     }
+// }
 
-#[test]
-fn test_type_dec64() {
-    let ty = Type::Decimal64(4);
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Decimal64(4)");
+// impl TestRecord {
+//     fn sample() -> Self {
+//         Self {
+//             id: 1,
+//             name: "name".to_string(),
+//             timestamp: OffsetDateTime::now_utc(),
+//             metric: 1.2,
+//             null_int: None,
+//             array: vec![
+//                 "abcd".to_string(),
+//                 "with_antislash\\".to_string(),
+//                 "with_quote\'".to_string(),
+//                 "with_\t_tab".to_string(),
+//                 "with,comma".to_string(),
+//             ],
+//         }
+//     }
+// }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::Decimal64(4));
-}
+// static INIT: OnceCell<Client> = OnceCell::const_new();
 
-#[test]
-fn test_type_dec128() {
-    let ty = Type::Decimal128(4);
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Decimal128(4)");
+// // #[tracing::instrument]
+// async fn init() -> &'static Client {
+//     INIT.get_or_init(|| async {
+//         crate::tests::init_tracer();
+//         let client = Client::new("http://localhost:8123").database("test");
+//         let db_schema = DbSchema::new().table(TestRecord::db_schema());
+//         client.create_db("test").await.unwrap();
+//         for table_schema in db_schema.tables {
+//             client
+//                 .create_table(&table_schema, "MergeTree()")
+//                 .await
+//                 .unwrap();
+//         }
+//         client
+//     })
+//     .await
+// }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::Decimal128(4));
-}
+// #[tokio::test]
+// #[tracing::instrument]
+// async fn test_orm_derive() {
+//     init().await;
 
-#[test]
-fn test_type_dec256() {
-    let ty = Type::Decimal256(4);
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Decimal256(4)");
+//     let record = TestRecord::sample();
+//     let row_values = record.db_values();
+//     tracing::info!(?row_values, "test_derive OK");
+// }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::Decimal256(4));
-}
+// #[tokio::test]
+// #[tracing::instrument]
+// async fn test_orm_insert_select_update_delete() {
+//     let client = init().await;
 
-#[test]
-fn test_type_array() {
-    let ty = Type::Array(Box::new(Type::UInt8));
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Array(UInt8)");
+//     let record = TestRecord::sample();
+//     match client.insert(&[record.clone()]).await {
+//         Ok(_ok) => {
+//             tracing::info!("insert OK");
+//         }
+//         Err(err) => {
+//             tracing::error!(%err, "insert ERROR");
+//             panic!("{err}")
+//         }
+//     }
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(ty_parsed, Type::Array(Box::new(Type::UInt8)));
-}
+//     let records = match client
+//         .select::<TestRecord>(&[], Where::new("id", "=", 1))
+//         .await
+//     {
+//         Ok(records) => {
+//             tracing::info!("select OK");
+//             records
+//         }
+//         Err(err) => {
+//             tracing::error!(%err, "select ERROR");
+//             panic!("{err}")
+//         }
+//     };
 
-#[test]
-fn test_type_map() {
-    let ty = Type::Map(Box::new(Type::String), Box::new(Type::UInt8));
-    let ty_str = ty.to_string();
-    assert_eq!(ty_str, "Map(String, UInt8)");
+//     let record = records.into_iter().find(|r| r.id == 1).unwrap();
+//     assert_eq!(record.id, 1);
+//     assert_eq!(record.metric, 1.2);
+//     assert_eq!(record.null_int, None);
+//     assert_eq!(record.array.get(0).unwrap(), "abcd");
+//     assert_eq!(record.array.get(1).unwrap(), "with_antislash\\");
+//     assert_eq!(record.array.get(2).unwrap(), "with_quote\'");
+//     assert_eq!(record.array.get(3).unwrap(), "with,comma");
+//     assert_eq!(record.array.get(4).unwrap(), "with_\t_tab");
 
-    let ty_parsed: Type = ty_str.parse().unwrap();
-    assert_eq!(
-        ty_parsed,
-        Type::Map(Box::new(Type::String), Box::new(Type::UInt8))
-    );
-}
+//     let mut updated_record = record;
+//     updated_record.name = "update name".to_string();
+//     match client
+//         .update::<TestRecord>(
+//             &updated_record,
+//             &["name"],
+//             Where::new("id", "=", updated_record.id),
+//         )
+//         .await
+//     {
+//         Ok(_ok) => {
+//             tracing::info!("update OK");
+//         }
+//         Err(err) => {
+//             tracing::error!(%err, "update ERROR");
+//             panic!("{err}")
+//         }
+//     }
+
+//     match client.delete::<TestRecord>(Where::new("id", "=", 1)).await {
+//         Ok(_ok) => {
+//             tracing::info!("delete OK");
+//         }
+//         Err(err) => {
+//             tracing::error!(%err, "delete ERROR");
+//             panic!("{err}")
+//         }
+//     }
+// }

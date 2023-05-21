@@ -15,11 +15,11 @@
 
 use interface::{http::Http, Interface};
 
+pub mod core;
+pub mod ddl;
 pub mod error;
 pub mod interface;
-pub mod orm;
 pub mod query;
-pub mod sch;
 
 /// Clickhouse client
 pub struct Client<T>
@@ -93,7 +93,7 @@ pub type HttpClient = Client<Http>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{sch::TableSchema, Client, HttpClient};
+    use crate::{ddl::TableSchema, Client, HttpClient};
     use std::sync::Once;
     use tokio::sync::OnceCell;
     use tracing_ext::sub::PrettyConsoleLayer;

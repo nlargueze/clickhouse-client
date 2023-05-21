@@ -1,6 +1,6 @@
-//! DDL
+//! DDL queries
 
-use crate::{error::Error, interface::Interface, sch::TableSchema, Client};
+use crate::{ddl::TableSchema, error::Error, interface::Interface, Client};
 
 impl<T> Client<T>
 where

@@ -60,24 +60,6 @@ impl From<std::num::TryFromIntError> for Error {
     }
 }
 
-impl serde::ser::Error for Error {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: std::fmt::Display,
-    {
-        Error(msg.to_string())
-    }
-}
-
-impl serde::de::Error for Error {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: std::fmt::Display,
-    {
-        Error(msg.to_string())
-    }
-}
-
 impl From<std::num::ParseIntError> for Error {
     fn from(value: std::num::ParseIntError) -> Self {
         Error(value.to_string())

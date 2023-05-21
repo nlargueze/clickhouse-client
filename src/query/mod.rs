@@ -1,16 +1,14 @@
 //! Queries
 
-use crate::{error::Error, interface::Interface, orm::Value, Client};
-
-mod ddl;
-mod fmt;
+use crate::{
+    core::{fmt::sql::SqlFormatter, Value},
+    error::Error,
+    interface::Interface,
+    Client,
+};
 
 #[cfg(test)]
 mod tests;
-
-use fmt::sql::SqlSerializer;
-pub use fmt::*;
-use serde::Serialize;
 
 impl<T> Client<T>
 where
@@ -44,11 +42,9 @@ where
     ///
     /// Query parameters are defined by `??`
     pub fn bind(mut self, value: impl Into<Value>) -> Self {
-        let sql_serializer = SqlSerializer::new();
         let value: Value = value.into();
-        let value_str = value
-            .serialize(sql_serializer)
-            .expect("cannot serialize value to SQL");
+        let formatter = SqlFormatter::new();
+        let value_str = value.format(&formatter);
         self.replace_bind_symbol(&value_str);
         self
     }

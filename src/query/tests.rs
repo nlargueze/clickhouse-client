@@ -1,7 +1,5 @@
 //! Query tests
 
-use crate::orm::time::{AsDate32, AsDateTime64};
-
 #[tokio::test]
 async fn test_query_bind_str() {
     let client = crate::tests::init().await;
@@ -47,7 +45,10 @@ async fn test_query_bind_string() {
 }
 
 #[tokio::test]
+#[cfg(feature = "time")]
 async fn test_query_bind_date() {
+    use crate::core::time::AsDate32;
+
     let client = crate::tests::init().await;
     let date = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
     client
@@ -59,7 +60,10 @@ async fn test_query_bind_date() {
 }
 
 #[tokio::test]
+#[cfg(feature = "time")]
 async fn test_query_bind_date32() {
+    use crate::core::time::AsDate32;
+
     let client = crate::tests::init().await;
     let date = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
     client
@@ -71,8 +75,11 @@ async fn test_query_bind_date32() {
 }
 
 #[tokio::test]
+#[cfg(feature = "time")]
 #[should_panic]
 async fn test_query_bind_datetime() {
+    use crate::core::time::AsDateTime64;
+
     let client = crate::tests::init().await;
     let date = time::OffsetDateTime::now_utc();
     client
@@ -84,7 +91,10 @@ async fn test_query_bind_datetime() {
 }
 
 #[tokio::test]
+#[cfg(feature = "time")]
 async fn test_query_bind_datetime64() {
+    use crate::core::time::AsDateTime64;
+
     let client = crate::tests::init().await;
     let date = time::OffsetDateTime::now_utc();
     client
