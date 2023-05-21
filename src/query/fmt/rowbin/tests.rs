@@ -2,71 +2,118 @@
 
 use assert_hex::assert_eq_hex;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use super::{de::RowBinDeserializer, ser::RowBinSerializer};
+use crate::orm::{Type, Value};
 
-#[tokio::test]
-async fn test_fmt_rowbin_ser_uuid() {
-    let serializer = RowBinSerializer::default();
-    let uuid = Uuid::new_v4();
-    let bytes = uuid.serialize(serializer).unwrap();
-    assert_eq_hex!(bytes, uuid.as_bytes());
+use super::{RowBinDeserializer, RowBinSerializer};
+
+#[test]
+fn test_fmt_rowbin_u8() {
+    let serializer = RowBinSerializer::new();
+    let x: Value = 1u8.into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, vec![0x01]);
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::UInt8).unwrap();
+    assert_eq!(x_de, x);
 }
 
-#[tokio::test]
-async fn test_fmt_rowbin_ser_u32() {
-    let i = 100_000_u32;
-    let serializer = RowBinSerializer::default();
-    let bytes = i.serialize(serializer).unwrap();
-    assert_eq_hex!(bytes, i.to_le_bytes());
+#[test]
+fn test_fmt_rowbin_u32() {
+    let serializer = RowBinSerializer::new();
+    let x: Value = 0xAB_CD_EF_u32.into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, vec![0xEF, 0xCD, 0xAB, 0x00]);
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::UInt32).unwrap();
+    assert_eq!(x_de, x);
 }
 
-#[tokio::test]
-async fn test_fmt_rowbin_ser_str() {
-    let s = "abcd";
-    let serializer = RowBinSerializer::default();
-    let bytes = s.serialize(serializer).unwrap();
-    // eprintln!("{:0X?}", s.as_bytes());
-    // eprintln!("{bytes:0X?}");
-    let mut s_with_prefix = vec![4];
-    s_with_prefix.append(&mut s.to_string().as_bytes().to_vec());
-    assert_eq_hex!(bytes, s_with_prefix);
+#[test]
+fn test_fmt_rowbin_bool() {
+    let serializer = RowBinSerializer::new();
+    let x: Value = true.into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, vec![0x01]);
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::Bool).unwrap();
+    assert_eq!(x_de, x);
 }
 
-#[tokio::test]
-async fn test_query_fmt_rowbin_de_uuid() {
-    let value = Uuid::new_v4();
-    let bytes = value.to_u128_le().to_le_bytes();
-    let deserializer = RowBinDeserializer::new(&bytes);
-    let uuid = Uuid::deserialize(deserializer).unwrap();
-    assert_eq!(uuid, value)
+#[test]
+#[should_panic]
+fn test_fmt_rowbin_bool_err() {
+    let x_ser = vec![0x02];
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let _x = bool::deserialize(deserializer).unwrap();
 }
 
-#[tokio::test]
-async fn test_query_fmt_rowbin_de_str() {
-    let value = "abcd";
-    let value_b = value.as_bytes();
-    let bytes: Vec<u8> = [&[0x04], value_b].concat();
-    let deserializer = RowBinDeserializer::new(&bytes);
-    let s = String::deserialize(deserializer).unwrap();
-    assert_eq!(s, value)
+#[test]
+fn test_fmt_rowbin_str() {
+    let serializer = RowBinSerializer::new();
+    let x: Value = "abcd".into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, vec![0x04, 0x61, 0x62, 0x63, 0x64]);
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::String).unwrap();
+    assert_eq!(x_de, x);
 }
 
-#[tokio::test]
-async fn test_query_fmt_rowbin_de_u16() {
-    let value = 1_000_u16;
-    let bytes = value.to_le_bytes();
-    let deserializer = RowBinDeserializer::new(&bytes);
-    let i = u16::deserialize(deserializer).unwrap();
-    assert_eq!(i, value)
+#[test]
+#[cfg(feature = "uuid")]
+fn test_fmt_rowbin_uuid() {
+    use ::uuid::Uuid;
+
+    let serializer = RowBinSerializer::new();
+    let id = Uuid::parse_str("f753a6d7-5415-420e-ace2-711b000ac5a5").unwrap();
+    let x: Value = id.into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, id.into_bytes());
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::UUID).unwrap();
+    assert_eq!(x_de, x);
 }
 
-#[tokio::test]
-async fn test_query_fmt_rowbin_de_bool() {
-    let value = true;
-    let bytes = [value as u8];
-    let deserializer = RowBinDeserializer::new(&bytes);
-    let b = bool::deserialize(deserializer).unwrap();
-    assert_eq!(b, value)
+#[test]
+#[cfg(feature = "time")]
+fn test_fmt_rowbin_date() {
+    use ::time::Date;
+    use time::Month;
+
+    use crate::orm::time::AsDate32;
+
+    let serializer = RowBinSerializer::new();
+    let date = Date::from_calendar_date(1970, Month::January, 11).unwrap();
+    let days_since_epoch =
+        (date - (Date::from_calendar_date(1970, Month::January, 1).unwrap())).whole_days() as i32;
+    let x: Value = date.as_date32();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, days_since_epoch.to_le_bytes());
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::Date32).unwrap();
+    assert_eq!(x_de, x);
+}
+
+#[test]
+#[cfg(feature = "time")]
+fn test_fmt_rowbin_datetime() {
+    use ::time::OffsetDateTime;
+
+    use crate::orm::time::AsDateTime64;
+
+    let serializer = RowBinSerializer::new();
+    let date = OffsetDateTime::now_utc();
+    let x: Value = date.as_datetime64();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq_hex!(x_ser, (date.unix_timestamp_nanos() as i64).to_le_bytes());
+
+    let deserializer = RowBinDeserializer::new(&x_ser);
+    let x_de = Value::deserialize_type(deserializer, Type::DateTime64(9)).unwrap();
+    assert_eq!(x_de, x);
 }

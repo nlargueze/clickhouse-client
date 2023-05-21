@@ -94,15 +94,18 @@ pub type HttpClient = Client<Http>;
 #[cfg(test)]
 mod tests {
     use crate::{sch::TableSchema, Client, HttpClient};
+    use std::sync::Once;
     use tokio::sync::OnceCell;
     use tracing_ext::sub::PrettyConsoleLayer;
     use tracing_subscriber::{prelude::*, EnvFilter};
 
-    static INIT: OnceCell<HttpClient> = OnceCell::const_new();
+    static INIT_TRACER: Once = Once::new();
+
+    static INIT_DB: OnceCell<()> = OnceCell::const_new();
 
     /// Initializes a client (and a tracer, and a test table)
-    pub(crate) async fn init() -> &'static HttpClient {
-        INIT.get_or_init(|| async {
+    pub(crate) async fn init() -> HttpClient {
+        INIT_TRACER.call_once(|| {
             let layer_pretty_stdout = PrettyConsoleLayer::default()
                 .wrapped(true)
                 .oneline(false)
@@ -118,27 +121,30 @@ mod tests {
                 .with(layer_pretty_stdout)
                 .with(filter_layer)
                 .init();
+        });
 
-            let client = Client::default().database("test");
-            client.create_db("test").await.unwrap();
+        INIT_DB
+            .get_or_init(|| async {
+                let client = Client::default().database("test");
+                client.create_db("test").await.unwrap();
 
-            let schema = TableSchema::new("tests")
-                .new_column("uuid", "UUID", true)
-                .new_column("string", "String", false)
-                .new_column("uint8", "UInt8", false)
-                .new_column("date", "Date", false)
-                .new_column("date32", "Date32", false)
-                .new_column("datetime", "DateTime", false)
-                .new_column("datetime64", "DateTime64(9)", false);
-            client.ddl().drop_table("tests").await.unwrap();
-            client
-                .ddl()
-                .create_table(&schema, "MergeTree()")
-                .await
-                .unwrap();
-            client
-                .query(
-                    "\
+                let schema = TableSchema::new("tests")
+                    .new_column("uuid", "UUID", true)
+                    .new_column("string", "String", false)
+                    .new_column("uint8", "UInt8", false)
+                    .new_column("date", "Date", false)
+                    .new_column("date32", "Date32", false)
+                    .new_column("datetime", "DateTime", false)
+                    .new_column("datetime64", "DateTime64(9)", false);
+                client.ddl().drop_table("tests").await.unwrap();
+                client
+                    .ddl()
+                    .create_table(&schema, "MergeTree()")
+                    .await
+                    .unwrap();
+                client
+                    .query(
+                        "\
                 INSERT INTO tests (uuid, string, uint8, date, date32, datetime, datetime64) \
                 VALUES (\
                 '63712f62-a87a-4d0f-9673-a17380428dc4', \
@@ -150,13 +156,13 @@ mod tests {
                 '1973-01-01 00:00:00.0'\
                 ) \
                 ",
-                )
-                .exec()
-                .await
-                .unwrap();
+                    )
+                    .exec()
+                    .await
+                    .unwrap();
+            })
+            .await;
 
-            client
-        })
-        .await
+        Client::default().database("test")
     }
 }

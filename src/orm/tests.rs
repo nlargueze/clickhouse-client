@@ -2,8 +2,8 @@
 
 use super::Type;
 
-#[tokio::test]
-async fn test_type_uint8() {
+#[test]
+fn test_type_uint8() {
     let ty = Type::UInt8;
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "UInt8");
@@ -12,8 +12,8 @@ async fn test_type_uint8() {
     assert_eq!(ty_parsed, Type::UInt8);
 }
 
-#[tokio::test]
-async fn test_type_uint8_null() {
+#[test]
+fn test_type_uint8_null() {
     let ty = Type::NullableUInt8;
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Nullable(UInt8)");
@@ -22,8 +22,8 @@ async fn test_type_uint8_null() {
     assert_eq!(ty_parsed, Type::NullableUInt8);
 }
 
-#[tokio::test]
-async fn test_type_dec() {
+#[test]
+fn test_type_dec() {
     let ty = Type::Decimal(6, 2);
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Decimal(6,2)");
@@ -32,8 +32,8 @@ async fn test_type_dec() {
     assert_eq!(ty_parsed, Type::Decimal(6, 2));
 }
 
-#[tokio::test]
-async fn test_type_dec32() {
+#[test]
+fn test_type_dec32() {
     let ty = Type::Decimal32(4);
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Decimal32(4)");
@@ -42,8 +42,8 @@ async fn test_type_dec32() {
     assert_eq!(ty_parsed, Type::Decimal32(4));
 }
 
-#[tokio::test]
-async fn test_type_dec64() {
+#[test]
+fn test_type_dec64() {
     let ty = Type::Decimal64(4);
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Decimal64(4)");
@@ -52,8 +52,8 @@ async fn test_type_dec64() {
     assert_eq!(ty_parsed, Type::Decimal64(4));
 }
 
-#[tokio::test]
-async fn test_type_dec128() {
+#[test]
+fn test_type_dec128() {
     let ty = Type::Decimal128(4);
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Decimal128(4)");
@@ -62,8 +62,8 @@ async fn test_type_dec128() {
     assert_eq!(ty_parsed, Type::Decimal128(4));
 }
 
-#[tokio::test]
-async fn test_type_dec256() {
+#[test]
+fn test_type_dec256() {
     let ty = Type::Decimal256(4);
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Decimal256(4)");
@@ -72,8 +72,8 @@ async fn test_type_dec256() {
     assert_eq!(ty_parsed, Type::Decimal256(4));
 }
 
-#[tokio::test]
-async fn test_type_array() {
+#[test]
+fn test_type_array() {
     let ty = Type::Array(Box::new(Type::UInt8));
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Array(UInt8)");
@@ -82,8 +82,8 @@ async fn test_type_array() {
     assert_eq!(ty_parsed, Type::Array(Box::new(Type::UInt8)));
 }
 
-#[tokio::test]
-async fn test_type_map() {
+#[test]
+fn test_type_map() {
     let ty = Type::Map(Box::new(Type::String), Box::new(Type::UInt8));
     let ty_str = ty.to_string();
     assert_eq!(ty_str, "Map(String, UInt8)");

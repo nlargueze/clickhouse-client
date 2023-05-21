@@ -15,11 +15,13 @@ pub enum Value {
     UInt32(u32),
     UInt64(u64),
     UInt128(u128),
+    UInt256([u8; 32]),
     Int8(i8),
     Int16(i16),
     Int32(i32),
     Int64(i64),
     Int128(i128),
+    Int256([u8; 32]),
     Float32(f32),
     Float64(f64),
     Bool(bool),
@@ -112,11 +114,13 @@ impl Serialize for Value {
             Value::UInt32(u) => u.serialize(serializer),
             Value::UInt64(u) => u.serialize(serializer),
             Value::UInt128(u) => u.serialize(serializer),
+            Value::UInt256(u) => u.serialize(serializer),
             Value::Int8(i) => i.serialize(serializer),
             Value::Int16(i) => i.serialize(serializer),
             Value::Int32(i) => i.serialize(serializer),
             Value::Int64(i) => i.serialize(serializer),
             Value::Int128(i) => i.serialize(serializer),
+            Value::Int256(u) => u.serialize(serializer),
             Value::Float32(f) => f.serialize(serializer),
             Value::Float64(f) => f.serialize(serializer),
             Value::Bool(b) => b.serialize(serializer),
@@ -301,44 +305,145 @@ impl Serialize for Value {
     }
 }
 
+/// Serde visitor for Uint256 [u8; 256]
+#[derive(Debug)]
+struct FixedBytesVisitor<const N: usize>;
+
+impl<'de, const N: usize> serde::de::Visitor<'de> for FixedBytesVisitor<N> {
+    type Value = [u8; N];
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "N bytes to represent fixed bytes types")
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        if v.len() != N {
+            return Err(E::custom("FixedBytesVisitor must have N bytes"));
+        }
+        let mut arr = [0x00; N];
+        (0..N).for_each(|i| {
+            arr[i] = *v.get(i).unwrap();
+        });
+        Ok(arr)
+    }
+}
+
 impl Value {
-    /// Deserialize to a value for a specific type
-    pub(crate) fn deserialize_for_type<'de, D>(
-        deserializer: D,
-        r#type: &Type,
-    ) -> Result<Self, D::Error>
+    /// Deserialize a specific type
+    pub(crate) fn deserialize_type<'de, D>(deserializer: D, r#type: Type) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         match r#type {
-            Type::UInt8 => todo!(),
-            Type::UInt16 => todo!(),
-            Type::UInt32 => todo!(),
-            Type::UInt64 => todo!(),
-            Type::UInt128 => todo!(),
-            Type::UInt256 => todo!(),
-            Type::Int8 => todo!(),
-            Type::Int16 => todo!(),
-            Type::Int32 => todo!(),
-            Type::Int64 => todo!(),
-            Type::Int128 => todo!(),
-            Type::Int256 => todo!(),
-            Type::Float32 => todo!(),
-            Type::Float64 => todo!(),
-            Type::Decimal(_, _) => todo!(),
-            Type::Decimal32(_) => todo!(),
-            Type::Decimal64(_) => todo!(),
-            Type::Decimal128(_) => todo!(),
-            Type::Decimal256(_) => todo!(),
-            Type::Bool => todo!(),
-            Type::String => todo!(),
-            Type::FixedString(_) => todo!(),
-            Type::Date => todo!(),
-            Type::Date32 => todo!(),
-            Type::DateTime => todo!(),
-            Type::DateTime64(_) => todo!(),
-            Type::UUID => todo!(),
-            Type::Array(_) => todo!(),
+            Type::UInt8 => {
+                let u = u8::deserialize(deserializer)?;
+                Ok(Value::UInt8(u))
+            }
+            Type::UInt16 => {
+                let u = u16::deserialize(deserializer)?;
+                Ok(Value::UInt16(u))
+            }
+            Type::UInt32 => {
+                let u = u32::deserialize(deserializer)?;
+                Ok(Value::UInt32(u))
+            }
+            Type::UInt64 => {
+                let u = u64::deserialize(deserializer)?;
+                Ok(Value::UInt64(u))
+            }
+            Type::UInt128 => {
+                let u = u128::deserialize(deserializer)?;
+                Ok(Value::UInt128(u))
+            }
+            Type::UInt256 => {
+                let bytes = deserializer.deserialize_bytes(FixedBytesVisitor::<32>)?;
+                Ok(Value::UInt256(bytes))
+            }
+            Type::Int8 => {
+                let i = i8::deserialize(deserializer)?;
+                Ok(Value::Int8(i))
+            }
+            Type::Int16 => {
+                let i = i16::deserialize(deserializer)?;
+                Ok(Value::Int16(i))
+            }
+            Type::Int32 => {
+                let i = i32::deserialize(deserializer)?;
+                Ok(Value::Int32(i))
+            }
+            Type::Int64 => {
+                let i = i64::deserialize(deserializer)?;
+                Ok(Value::Int64(i))
+            }
+            Type::Int128 => {
+                let i = i128::deserialize(deserializer)?;
+                Ok(Value::Int128(i))
+            }
+            Type::Int256 => {
+                let bytes = deserializer.deserialize_bytes(FixedBytesVisitor::<32>)?;
+                Ok(Value::Int256(bytes))
+            }
+            Type::Float32 => {
+                let f = f32::deserialize(deserializer)?;
+                Ok(Value::Float32(f))
+            }
+            Type::Float64 => {
+                let f = f64::deserialize(deserializer)?;
+                Ok(Value::Float64(f))
+            }
+            Type::Decimal(_, _) => {
+                unimplemented!("deserializing to Decimal(P,S)")
+            }
+            Type::Decimal32(_) => {
+                unimplemented!("deserializing to Decimal32")
+            }
+            Type::Decimal64(_) => {
+                unimplemented!("deserializing to Decimal64")
+            }
+            Type::Decimal128(_) => {
+                unimplemented!("deserializing to Decimal128")
+            }
+            Type::Decimal256(_) => {
+                unimplemented!("deserializing to Decimal256")
+            }
+            Type::Bool => {
+                let b = bool::deserialize(deserializer)?;
+                Ok(Value::Bool(b))
+            }
+            Type::String => {
+                let s = String::deserialize(deserializer)?;
+                Ok(Value::String(s))
+            }
+            Type::FixedString(_) => {
+                let s = String::deserialize(deserializer)?;
+                Ok(Value::FixedString(s))
+            }
+            Type::Date => {
+                let d = u16::deserialize(deserializer)?;
+                Ok(Value::Date(d))
+            }
+            Type::Date32 => {
+                let d = i32::deserialize(deserializer)?;
+                Ok(Value::Date32(d))
+            }
+            Type::DateTime => {
+                let dt = u32::deserialize(deserializer)?;
+                Ok(Value::DateTime(dt))
+            }
+            Type::DateTime64(_) => {
+                let dt = i64::deserialize(deserializer)?;
+                Ok(Value::DateTime64(dt))
+            }
+            Type::UUID => {
+                let bytes = deserializer.deserialize_bytes(FixedBytesVisitor::<16>)?;
+                Ok(Value::UUID(bytes))
+            }
+            Type::Array(_ty) => {
+                todo!()
+            }
             Type::Map(_, _) => todo!(),
             Type::Nested(_) => todo!(),
             Type::NullableUInt8 => todo!(),

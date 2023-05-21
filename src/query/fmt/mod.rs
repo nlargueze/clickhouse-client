@@ -3,9 +3,6 @@
 pub mod rowbin;
 pub mod sql;
 
-#[cfg(test)]
-mod tests;
-
 use crate::orm::{Type, Value};
 
 /// A representation of a data table for formatting

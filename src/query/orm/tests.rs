@@ -1,7 +1,6 @@
 //! Tests
 
 use clickhouse_client_macros::DbRecord;
-use tokio::sync::OnceCell;
 
 use crate::{
     schema::{ColSchema, TableSchema},
@@ -9,8 +8,6 @@ use crate::{
 };
 
 use super::prelude::*;
-
-static INIT_DB: OnceCell<()> = OnceCell::const_new();
 
 // /// Init
 // async fn init() -> &'static HttpClient {

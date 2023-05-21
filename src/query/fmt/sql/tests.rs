@@ -1,28 +1,60 @@
 //! Tests
 
+use crate::orm::Value;
+
 use super::SqlSerializer;
 use serde::Serialize;
 
-#[tokio::test]
-#[cfg(feature = "uuid")]
-async fn test_fmt_sql_uuid() {
-    use uuid::Uuid;
-
-    let _ = crate::tests::init().await;
+#[test]
+fn test_fmt_sql_u8() {
     let serializer = SqlSerializer::new();
-
-    let uuid_str = "f753a6d7-5415-420e-ace2-711b000ac5a5";
-    let uuid = Uuid::parse_str(uuid_str).unwrap();
-    let uuid_ser = uuid.serialize(serializer).unwrap();
-    assert_eq!(uuid_ser, format!("'{uuid_str}'"));
+    let x: Value = 1u8.into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq!(x_ser, "1");
 }
 
-#[tokio::test]
-async fn test_fmt_sql_u32() {
-    let _ = crate::tests::init().await;
+#[test]
+fn test_fmt_sql_str() {
     let serializer = SqlSerializer::new();
+    let x: Value = "abcd".into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq!(x_ser, "'abcd'");
+}
 
-    let u = 10_u32;
-    let u_ser = u.serialize(serializer).unwrap();
-    assert_eq!(u_ser, u.to_string());
+#[test]
+#[cfg(feature = "uuid")]
+fn test_fmt_sql_uuid() {
+    use uuid::Uuid;
+
+    let serializer = SqlSerializer::new();
+    let id = Uuid::parse_str("f753a6d7-5415-420e-ace2-711b000ac5a5").unwrap();
+    let x: Value = id.into();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq!(x_ser, "'f753a6d7-5415-420e-ace2-711b000ac5a5'");
+}
+
+#[test]
+#[cfg(feature = "time")]
+fn test_fmt_sql_date() {
+    use crate::orm::time::AsDate32;
+    use time::{Date, Month};
+
+    let serializer = SqlSerializer::new();
+    let date = Date::from_calendar_date(1970, Month::January, 1).unwrap();
+    let x = date.as_date32();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq!(x_ser, "'1970-01-01'");
+}
+
+#[test]
+#[cfg(feature = "time")]
+fn test_fmt_sql_datetime() {
+    use crate::orm::time::AsDateTime64;
+    use time::{Month, OffsetDateTime};
+
+    let serializer = SqlSerializer::new();
+    let dt = OffsetDateTime::from_unix_timestamp(0).unwrap();
+    let x = dt.as_datetime64();
+    let x_ser = x.serialize(serializer).unwrap();
+    assert_eq!(x_ser, "'1970-01-01 00:00:00.0'");
 }

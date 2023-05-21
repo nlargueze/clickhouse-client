@@ -123,7 +123,7 @@ impl FmtDataTable {
             // loop on each columns
             let mut cols = vec![];
             for ty in types {
-                let value = Value::deserialize_for_type(deserializer, ty).unwrap();
+                let value = Value::deserialize_type(deserializer, ty.clone()).unwrap();
                 cols.push(value);
             }
             rows.push(cols);

@@ -195,12 +195,10 @@ impl<'de> Deserializer<'de> for RowBinDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_string: {:0X?}", self.buffer);
         let n: usize = leb128::read::unsigned(&mut self.buffer)?.try_into()?;
         let mut buf_str = vec![0u8; n];
         self.buffer.read_exact(&mut buf_str)?;
         let string = String::from_utf8(buf_str)?;
-        eprintln!("self.buffer={:0X?}", self.buffer);
         visitor.visit_string(string)
     }
 
@@ -324,7 +322,7 @@ impl<'de> Deserializer<'de> for RowBinDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        todo!("deserialize_struct")
+        todo!("deserialize_enum");
     }
 
     fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>

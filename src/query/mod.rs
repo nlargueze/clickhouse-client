@@ -2,7 +2,7 @@
 
 use crate::{error::Error, interface::Interface, orm::Value, Client};
 
-pub mod ddl;
+mod ddl;
 mod fmt;
 
 #[cfg(test)]
