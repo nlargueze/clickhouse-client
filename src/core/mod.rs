@@ -3,12 +3,12 @@
 //! This is the core module for Clickhouse
 
 pub mod fmt;
-mod sch;
 mod ty;
+mod ty_orm;
 mod val;
 
-pub use sch::*;
 pub use ty::*;
+pub use ty_orm::*;
 pub use val::*;
 
 #[cfg(feature = "time")]

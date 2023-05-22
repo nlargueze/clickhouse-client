@@ -1,4 +1,4 @@
-//! Crate error
+//! Error
 
 /// Generic error
 #[derive(Debug, thiserror::Error)]

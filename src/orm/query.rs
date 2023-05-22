@@ -2,7 +2,7 @@
 //!
 //! ORM queries use the `BinaryRow` format to get data from and into the DB.
 
-use crate::{error::Error, interface::Interface};
+use crate::{error::Error, intf::Interface};
 
 use super::{OrmExt, OrmQuery};
 
@@ -16,7 +16,7 @@ where
     #[tracing::instrument(skip(self), fields(table = U::db_schema().name))]
     pub async fn create_table(&self, engine: &str) -> Result<(), Error> {
         let schema = U::db_schema();
-        self.client.ddl().create_table(&schema, engine).await
+        self.client.ddl().create_table(schema, engine).await
     }
 }
 
@@ -26,97 +26,84 @@ where
     T: Interface,
     U: OrmExt,
 {
-    /// Select records
-    #[tracing::instrument(skip(self), fields(table = U::db_schema().name))]
-    pub async fn select(&self, columns: &[&str]) -> Result<(), Error> {
-        // todo!();
-        let schema = U::db_schema();
+    // /// Inserts records
+    // #[tracing::instrument(skip(self, records), fields(table = U::db_schema().name))]
+    // pub async fn insert(&self, records: &[U]) -> Result<(), Error> {
+    //     let schema = U::db_schema();
 
-        let table = self
-            .client
-            .raw_query_opts()
-            .db
-            .map(|db| format!("{}.{}", db, schema.name))
-            .unwrap_or(schema.name);
+    //     let table = self
+    //         .client
+    //         .raw_query_opts()
+    //         .db
+    //         .map(|db| format!("{}.{}", db, schema.name))
+    //         .unwrap_or(schema.name.clone());
 
-        let cols = if columns.is_empty() {
-            vec!["*"]
-        } else {
-            columns.to_vec()
-        };
+    //     let formatter = RowBinFormatter::new_with_names_and_types();
+    //     let mut datatable = QueryTable::default();
+    //     for (i, record) in records.iter().enumerate() {
+    //         if i == 0 {
+    //             datatable.names = record.db_names();
+    //             datatable.types = record.db_types();
+    //         }
+    //         datatable.rows.push(record.db_row());
+    //     }
 
-        let query = format!(
-            "SELECT {} FROM {} FORMAT RowBinaryWithNames",
-            cols.join(","),
-            table
-        );
+    //     // nothing to insert
+    //     if datatable.nb_rows() == 0 {
+    //         return Ok(());
+    //     }
+    //     let data = formatter.format_table(&datatable);
 
-        let options = self.client.raw_query_opts();
-        let _bytes = self.client.interface.raw_query(&query, options).await?;
+    //     let query = format!(
+    //         "INSERT INTO {} FROM {} FORMAT RowBinaryWithNamesAndTypes",
+    //         table, "01234",
+    //     );
+    //     let options = self.client.raw_query_opts();
+    //     let _res_bytes = self.client.interface.send(&query, options).await?;
+    //     Ok(())
+    // }
 
-        // let formatter = RowBinFormatter::new();
-        // formatter.parse_table(bytes, types);
-        // QueryTable::from_schema(&schema).fill_with(format);
-        // formatter.parse(&bytes).unwrap();
-        // eprintln!("{:X?}", bytes);
+    // /// Select records
+    // #[tracing::instrument(skip(self), fields(table = U::db_schema().name))]
+    // pub async fn select(&self, columns: &[&str]) -> Result<(), Error> {
+    //     // todo!();
+    //     let schema = U::db_schema();
 
-        // INSERT
-        // let table = <value as OrmRecord>.to_query_table(formatter);
+    //     let table = self
+    //         .client
+    //         .raw_query_opts()
+    //         .db
+    //         .map(|db| format!("{}.{}", db, schema.name))
+    //         .unwrap_or(schema.name.to_string());
 
-        // Ok(())
-        todo!()
-    }
+    //     let cols = if columns.is_empty() {
+    //         vec!["*"]
+    //     } else {
+    //         columns.to_vec()
+    //     };
+
+    //     let query = format!(
+    //         "SELECT {} FROM {} FORMAT RowBinaryWithNames",
+    //         cols.join(","),
+    //         table
+    //     );
+
+    //     let options = self.client.raw_query_opts();
+    //     let _bytes = self.client.interface.send(&query, options).await?;
+
+    //     // let formatter = RowBinFormatter::new();
+    //     // formatter.parse_table(bytes, types);
+    //     // QueryTable::from_schema(&schema).fill_with(format);
+    //     // formatter.parse(&bytes).unwrap();
+    //     // eprintln!("{:X?}", bytes);
+
+    //     // INSERT
+    //     // let table = <value as OrmRecord>.to_query_table(formatter);
+
+    //     // Ok(())
+    //     todo!()
+    // }
 }
-
-// /// Inserts records
-// #[tracing::instrument(skip(self, records), fields(record = U::NAME))]
-// pub async fn insert(&self, records: &[U]) -> Result<(), Error> {
-//     let schema = U::SCHEMA;
-
-//     let table = self
-//         .client
-//         .raw_query_opts()
-//         .db
-//         .map(|db| format!("{}.{}", db, schema.name))
-//         .unwrap_or(schema.name);
-
-//     let cols = schema
-//         .cols
-//         .iter()
-//         .map(|col| col.name.as_str())
-//         .collect::<Vec<_>>();
-
-//     let values = records
-//         .iter()
-//         .map(|record| {
-//             let db_values = record.db_values();
-//             cols.iter()
-//                 .map(|col| db_values.get(col).expect("column not found").as_str())
-//                 .collect::<Vec<_>>()
-//                 .join(", ")
-//         })
-//         .collect::<Vec<_>>();
-
-//     // INSERT INTO sometable
-//     // FROM INFILE 'data.binary'
-//     // FORMAT RowBinary
-
-//     let query = format!(
-//         "INSERT INTO {} ({}) VALUES {}",
-//         table,
-//         cols.join(","),
-//         values
-//             .iter()
-//             .map(|v| { format!("({v})") })
-//             .collect::<Vec<String>>()
-//             .join(", "),
-//     );
-
-//     let options = self.client.raw_query_opts();
-//     let _res_bytes = self.client.interface.raw_query(&query, options).await?;
-//     Ok(())
-// }
-// }
 
 // impl<F> Client<F>
 // where

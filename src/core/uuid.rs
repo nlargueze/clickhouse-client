@@ -2,10 +2,25 @@
 
 use uuid::Uuid;
 
-use super::Value;
+use super::{Type, TypeOrm, Value};
+use crate::error::Error;
 
-impl From<Uuid> for Value {
-    fn from(value: Uuid) -> Self {
-        Value::UUID(value.into_bytes())
+impl TypeOrm for Uuid {
+    fn db_type() -> super::Type {
+        Type::UUID
+    }
+
+    fn db_value(&self) -> Value {
+        Value::UUID(self.into_bytes())
+    }
+
+    fn from_db_value(value: &Value) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        match value {
+            Value::UUID(id) => Ok(Uuid::from_bytes(*id)),
+            _ => Err(Error("Value is not an UUID".to_string())),
+        }
     }
 }

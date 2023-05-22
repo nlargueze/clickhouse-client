@@ -68,52 +68,6 @@ pub enum Value {
     NullableEnum16(Option<i16>),
 }
 
-/// Implements the conversion from base type
-macro_rules! impl_conv {
-    ($VAR:tt, $TY:ty) => {
-        impl From<$TY> for Value {
-            fn from(value: $TY) -> Self {
-                Value::$VAR(value)
-            }
-        }
-    };
-}
-
-impl_conv!(UInt8, u8);
-impl_conv!(UInt16, u16);
-impl_conv!(UInt32, u32);
-impl_conv!(UInt64, u64);
-impl_conv!(UInt128, u128);
-impl_conv!(Int8, i8);
-impl_conv!(Int16, i16);
-impl_conv!(Int32, i32);
-impl_conv!(Int64, i64);
-impl_conv!(Int128, i128);
-impl_conv!(Float32, f32);
-impl_conv!(Float64, f64);
-impl_conv!(Bool, bool);
-impl_conv!(String, String);
-impl_conv!(NullableUInt8, Option<u8>);
-impl_conv!(NullableUInt16, Option<u16>);
-impl_conv!(NullableUInt32, Option<u32>);
-impl_conv!(NullableUInt64, Option<u64>);
-impl_conv!(NullableUInt128, Option<u128>);
-impl_conv!(NullableInt8, Option<i8>);
-impl_conv!(NullableInt16, Option<i16>);
-impl_conv!(NullableInt32, Option<i32>);
-impl_conv!(NullableInt64, Option<i64>);
-impl_conv!(NullableInt128, Option<i128>);
-impl_conv!(NullableFloat32, Option<f32>);
-impl_conv!(NullableFloat64, Option<f64>);
-impl_conv!(NullableBool, Option<bool>);
-impl_conv!(NullableString, Option<String>);
-
-impl From<&str> for Value {
-    fn from(value: &str) -> Self {
-        Value::String(value.to_string())
-    }
-}
-
 impl Value {
     /// Returns the nullable variant of the same value
     ///

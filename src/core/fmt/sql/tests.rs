@@ -35,12 +35,11 @@ fn test_fmt_sql_uuid() {
 #[test]
 #[cfg(feature = "time")]
 fn test_fmt_sql_date() {
-    use crate::core::time::AsDate32;
     use time::{Date, Month};
 
     let formatter = SqlFormatter::new();
     let date = Date::from_calendar_date(1970, Month::January, 1).unwrap();
-    let x = date.as_date32();
+    let x: Value = date.into();
     let x_ser = x.format(&formatter);
     assert_eq!(x_ser, "'1970-01-01'");
 }
@@ -48,12 +47,11 @@ fn test_fmt_sql_date() {
 #[test]
 #[cfg(feature = "time")]
 fn test_fmt_sql_datetime() {
-    use crate::core::time::AsDateTime64;
     use time::OffsetDateTime;
 
     let formatter = SqlFormatter::new();
     let dt = OffsetDateTime::from_unix_timestamp(0).unwrap();
-    let x = dt.as_datetime64();
+    let x: Value = dt.into();
     let x_ser = x.format(&formatter);
     assert_eq!(x_ser, "'1970-01-01 00:00:00.0'");
 }

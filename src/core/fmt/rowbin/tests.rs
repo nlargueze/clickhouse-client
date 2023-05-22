@@ -91,7 +91,6 @@ fn test_fmt_rowbin_uuid() {
 #[test]
 #[cfg(feature = "time")]
 fn test_fmt_rowbin_date() {
-    use crate::core::time::AsDate32;
     use ::time::Date;
     use time::Month;
 
@@ -100,7 +99,7 @@ fn test_fmt_rowbin_date() {
     let date = Date::from_calendar_date(1970, Month::January, 11).unwrap();
     let days_since_epoch =
         (date - (Date::from_calendar_date(1970, Month::January, 1).unwrap())).whole_days() as i32;
-    let x: Value = date.as_date32();
+    let x: Value = date.into();
     let x_ser = x.format(&formatter);
     assert_eq_hex!(x_ser, days_since_epoch.to_le_bytes());
 
@@ -112,13 +111,12 @@ fn test_fmt_rowbin_date() {
 #[test]
 #[cfg(feature = "time")]
 fn test_fmt_rowbin_datetime() {
-    use crate::core::time::AsDateTime64;
     use ::time::OffsetDateTime;
 
     let formatter = RowBinFormatter::new();
 
     let date = OffsetDateTime::now_utc();
-    let x: Value = date.as_datetime64();
+    let x: Value = date.into();
     let x_ser = x.format(&formatter);
     assert_eq_hex!(x_ser, (date.unix_timestamp_nanos() as i64).to_le_bytes());
 

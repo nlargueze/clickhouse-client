@@ -10,40 +10,70 @@ mod tests;
 /// ORM prelude
 pub mod prelude {
     pub use super::OrmExt;
-    pub use crate::core::{ColSchema, TableSchema};
+    pub use crate::{
+        core::{TypeOrm, Value},
+        ddl::{ColSchema, TableSchema},
+        error::Error,
+    };
     pub use clickhouse_client_macros::Orm;
+    pub use once_cell;
 }
 
-use crate::{interface::Interface, Client};
-use std::marker::PhantomData;
-
-use prelude::*;
-
-// fn global_data() -> &'static Vec<u8> {
-//     static INSTANCE: once_cell::sync::OnceCell<Vec<u8>> = once_cell::sync::OnceCell::new();
-//     INSTANCE.get_or_init(|| {
-//         let mut v = Vec::new();
-//         v.push(1);
-//         v
-//     })
-// }
-
-// /// Test record
-// #[derive(Debug, Orm)]
-// #[db(table = "records")]
-// struct TestRecord {
-//     /// ID
-//     #[db(primary_key)]
-//     id: u8,
-//     /// Name
-//     name: String,
-// }
+use crate::{
+    core::{Type, Value},
+    ddl::TableSchema,
+    error::Error,
+    intf::Interface,
+    Client,
+};
+use std::{collections::HashMap, marker::PhantomData};
 
 /// Extension trait to represent a Rust struct as a database record
 pub trait OrmExt {
     /// Returns the DB table schema
-    fn db_schema() -> TableSchema;
+    fn db_schema() -> &'static TableSchema;
+
+    /// Returns the DB values
+    fn db_values(&self) -> HashMap<String, Value>;
+
+    /// Parses from DB values
+    fn from_db_values(values: &HashMap<String, Value>) -> Result<Self, Error>
+    where
+        Self: Default;
+
+    /// Returns the column names
+    fn db_names(&self) -> Vec<String> {
+        Self::db_schema()
+            .columns
+            .iter()
+            .map(|col| col.id.clone())
+            .collect()
+    }
+
+    /// Returns the column types
+    fn db_types(&self) -> Vec<Type> {
+        Self::db_schema()
+            .columns
+            .iter()
+            .map(|col| col.ty.clone())
+            .collect()
+    }
+
+    /// Returns the row
+    fn db_row(&self) -> Vec<Value> {
+        let names = self.db_names();
+        let values = self.db_values();
+        names
+            .iter()
+            .map(|name| values.get(name).expect("invalid column name").clone())
+            .collect()
+    }
 }
+
+// /// Extension trait to represent a Rust type as a
+// pub trait OrmFieldExt: Into<Value> + From<Value> {
+//     //
+// }
 
 /// ORM query
 pub struct OrmQuery<'a, T, U>

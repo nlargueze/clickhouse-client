@@ -1,7 +1,7 @@
 //! Query tests
 
 #[tokio::test]
-async fn test_query_bind_str() {
+async fn query_bind_str() {
     let client = crate::tests::init().await;
     client
         .query("SELECT * FROM tests WHERE uuid = ??")
@@ -12,7 +12,7 @@ async fn test_query_bind_str() {
 }
 
 #[tokio::test]
-async fn test_query_bind_uuid() {
+async fn query_bind_uuid() {
     let client = crate::tests::init().await;
     client
         .query("SELECT * FROM tests WHERE uuid = ??")
@@ -23,7 +23,7 @@ async fn test_query_bind_uuid() {
 }
 
 #[tokio::test]
-async fn test_query_bind_int() {
+async fn query_bind_int() {
     let client = crate::tests::init().await;
     client
         .query("SELECT * FROM tests WHERE uint8 = ??")
@@ -34,7 +34,7 @@ async fn test_query_bind_int() {
 }
 
 #[tokio::test]
-async fn test_query_bind_string() {
+async fn query_bind_string() {
     let client = crate::tests::init().await;
     client
         .query("SELECT * FROM tests WHERE string = ??")
@@ -46,14 +46,12 @@ async fn test_query_bind_string() {
 
 #[tokio::test]
 #[cfg(feature = "time")]
-async fn test_query_bind_date() {
-    use crate::core::time::AsDate32;
-
+async fn query_bind_date() {
     let client = crate::tests::init().await;
     let date = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
     client
         .query("SELECT * FROM tests WHERE date = ??")
-        .bind(date.as_date32())
+        .bind(date)
         .exec()
         .await
         .unwrap();
@@ -61,14 +59,12 @@ async fn test_query_bind_date() {
 
 #[tokio::test]
 #[cfg(feature = "time")]
-async fn test_query_bind_date32() {
-    use crate::core::time::AsDate32;
-
+async fn query_bind_date32() {
     let client = crate::tests::init().await;
     let date = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
     client
         .query("SELECT * FROM tests WHERE date32 = ??")
-        .bind(date.as_date32())
+        .bind(date)
         .exec()
         .await
         .unwrap();
@@ -77,14 +73,12 @@ async fn test_query_bind_date32() {
 #[tokio::test]
 #[cfg(feature = "time")]
 #[should_panic]
-async fn test_query_bind_datetime() {
-    use crate::core::time::AsDateTime64;
-
+async fn query_bind_datetime() {
     let client = crate::tests::init().await;
     let date = time::OffsetDateTime::now_utc();
     client
         .query("SELECT * FROM tests WHERE datetime = ??")
-        .bind(date.as_datetime64())
+        .bind(date)
         .exec()
         .await
         .unwrap();
@@ -92,14 +86,12 @@ async fn test_query_bind_datetime() {
 
 #[tokio::test]
 #[cfg(feature = "time")]
-async fn test_query_bind_datetime64() {
-    use crate::core::time::AsDateTime64;
-
+async fn query_bind_datetime64() {
     let client = crate::tests::init().await;
     let date = time::OffsetDateTime::now_utc();
     client
         .query("SELECT * FROM tests WHERE datetime64 = ??")
-        .bind(date.as_datetime64())
+        .bind(date)
         .exec()
         .await
         .unwrap();

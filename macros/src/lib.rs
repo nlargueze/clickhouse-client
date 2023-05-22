@@ -13,8 +13,14 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 ///
 /// # Prerequisites
 ///
-/// - each field Rust type must implement the trait `TypeExt` to map to a DB type
-/// - The following elements must be in scope: `OrmExt`, `TypeExt`, `TableSchemaStatic`, `ColSchemaStatic`
+/// - each field type must implement the trait `TypeOrm` to map to a DB type
+/// - The following elements must be in scope:
+///     - `OrmExt`
+///     - `once_cell`
+///     - `TableSchema`
+///     - `ColSchema`
+///     - `TypeOrm`
+///     - `Value`
 ///
 /// # Attributes
 ///
@@ -79,18 +85,19 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 
         if !field_attrs.skip {
             table_cols.push(quote! {
-                ColSchemaStatic {
-                    id: #col_name,
-                    ty: <#field_type as TypeExt>::DB_TYPE,
+                ColSchema {
+                    id: #col_name.to_string(),
+                    ty: #field_type::db_type(),
                     is_primary: #col_is_primary_key,
                 }
             });
             map_insert_values.push(quote! {
-                map.insert(#col_name, Box::new(&self.#field_id));
+                // field type => Value
+                map.insert(#col_name.to_string(), self.#field_id.db_value());
             });
             set_record_fields.push(quote! {
-                record.#field_id = <#field_type as DbValue>::from_sql_str(values[#col_name])
-                .map_err(|err| format!("({}) {}", #col_name, err))?;
+                // Value => field type
+                record.#field_id = #field_type::from_db_value(values.get(#col_name).expect("invalid column"))?;
             });
         }
     }
@@ -102,27 +109,29 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
 
     quote! {
         impl OrmExt for #ident {
-            // DB SCHEMA
-            const DB_SCHEMA: TableSchemaStatic = TableSchemaStatic {
-                name: #table_name,
-                columns: &[#(#table_cols),*],
-            };
+            fn db_schema() -> &'static TableSchema {
+                static INSTANCE: once_cell::sync::OnceCell<TableSchema> = once_cell::sync::OnceCell::new();
+                INSTANCE.get_or_init(|| {
+                    TableSchema {
+                        name: #table_name.to_string(),
+                        columns: vec![#(#table_cols),*],
+                    }
+                })
+            }
 
-            // fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbValue>> {
-            //     // NB: map must be typed, otherwise it infers the value type from the 1st inserted value
-            //     let mut map: ::std::collections::HashMap<&str, Box<&'_ dyn DbValue>> = ::std::collections::HashMap::new();
-            //     #(#map_insert_values) *
-            //     map
-            // }
+            fn db_values(&self) -> ::std::collections::HashMap<String, Value> {
+                let mut map = ::std::collections::HashMap::new();
+                #(#map_insert_values) *
+                map
+            }
 
-            // fn from_db_values(values: ::std::collections::HashMap<&str, &str>) -> ::std::result::Result<Self, String>
-            // where
-            //     Self: Sized + Default
-            // {
-            //     let mut record = Self::default();
-            //     #(#set_record_fields) *
-            //     Ok(record)
-            // }
+            fn from_db_values(values: &::std::collections::HashMap<String, Value>) -> Result<Self, Error>
+            where
+                Self: Default {
+                let mut record = Self::default();
+                #(#set_record_fields) *
+                Ok(record)
+            }
         }
     }
     .into()

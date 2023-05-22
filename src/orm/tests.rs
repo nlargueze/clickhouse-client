@@ -1,33 +1,35 @@
 //! Tests
 
-// use super::prelude::*;
+use time::Date;
+use tokio::sync::OnceCell;
+use uuid::Uuid;
 
-// /// Test record
-// #[derive(Debug, Orm)]
-// #[db(table = "records")]
-// struct TestRecord {
-//     /// ID
-//     #[db(primary_key)]
-//     id: u8,
-//     /// Name
-//     name: String,
-// }
+use crate::HttpClient;
 
-// impl TestRecord {
-//     fn sample() -> Self {
-//         TestRecord {
-//             id: 1,
-//             name: "john".into(),
-//         }
-//     }
-// }
+use super::prelude::*;
 
-// #[tokio::test]
-// async fn test_orm_select() {
-//     let client = init().await;
-//     let res = client.orm::<TestRecord>().select(&[]).await.unwrap();
-// }
+/// Test record
+#[derive(Debug, Orm)]
+#[db(table = "orm")]
+struct TestRecord {
+    /// ID
+    #[db(primary_key)]
+    id: u8,
+    /// Name
+    name: String,
+    /// UUID
+    uuid: Uuid,
+    /// Date
+    date: Date,
+}
 
+// .new_column("uuid", Type::UUID, true)
+// .new_column("string", Type::String, false)
+// .new_column("uint8", Type::UInt8, false)
+// .new_column("date", Type::Date, false)
+// .new_column("date32", Type::Date32, false)
+// .new_column("datetime", Type::DateTime, false)
+// .new_column("datetime64", Type::DateTime64(9), false);
 // /// Test record
 // #[derive(Debug, DbRecord, Clone)]
 // #[db(table = "records")]
@@ -41,18 +43,41 @@
 //     array: Vec<String>,
 // }
 
-// impl Default for TestRecord {
-//     fn default() -> Self {
-//         Self {
-//             id: Default::default(),
-//             name: Default::default(),
-//             timestamp: OffsetDateTime::UNIX_EPOCH,
-//             metric: Default::default(),
-//             null_int: Default::default(),
-//             array: Vec::default(),
-//         }
-//     }
-// }
+impl Default for TestRecord {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            name: Default::default(),
+            uuid: Default::default(),
+            date: Date::from_julian_day(1).unwrap(),
+        }
+    }
+}
+
+static INIT_DB: OnceCell<()> = OnceCell::const_new();
+
+/// Initializes these tests
+async fn init() -> HttpClient {
+    INIT_DB
+        .get_or_init(|| async {
+            let client = crate::tests::init().await;
+            client
+                .orm::<TestRecord>()
+                .create_table("MergeTree()")
+                .await
+                .unwrap();
+        })
+        .await;
+
+    crate::tests::init().await
+}
+
+#[tokio::test]
+#[tracing::instrument]
+async fn test_orm_insert() {
+    let client = init().await;
+    // client.orm::<TestRecord>().insert().await.unwrap();
+}
 
 // impl TestRecord {
 //     fn sample() -> Self {
@@ -91,16 +116,6 @@
 //         client
 //     })
 //     .await
-// }
-
-// #[tokio::test]
-// #[tracing::instrument]
-// async fn test_orm_derive() {
-//     init().await;
-
-//     let record = TestRecord::sample();
-//     let row_values = record.db_values();
-//     tracing::info!(?row_values, "test_derive OK");
 // }
 
 // #[tokio::test]

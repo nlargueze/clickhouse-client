@@ -13,12 +13,13 @@
 
 #![deny(missing_docs)]
 
-use interface::{http::Http, Interface};
+use intf::{http::Http, Interface};
 
 pub mod core;
 pub mod ddl;
 pub mod error;
-pub mod interface;
+pub mod fmt;
+pub mod intf;
 pub mod orm;
 pub mod query;
 
@@ -94,7 +95,7 @@ pub type HttpClient = Client<Http>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{core::TableSchema, core::Type, Client, HttpClient};
+    use crate::{core::Type, ddl::TableSchema, Client, HttpClient};
     use std::sync::Once;
     use tokio::sync::OnceCell;
     use tracing_ext::sub::PrettyConsoleLayer;
@@ -127,8 +128,7 @@ mod tests {
         INIT_DB
             .get_or_init(|| async {
                 let client = Client::default().database("test");
-                client.create_db("test").await.unwrap();
-
+                client.ddl().create_db("test").await.unwrap();
                 let schema = TableSchema::new("tests")
                     .new_column("uuid", Type::UUID, true)
                     .new_column("string", Type::String, false)
