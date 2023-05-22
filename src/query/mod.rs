@@ -49,7 +49,7 @@ where
         self
     }
 
-    /// Binds the raw query with raw query parameters
+    /// Binds the query with a raw parameter which is not formatted
     ///
     /// For instance, strings are not enclosed by `'`.
     ///
@@ -90,13 +90,13 @@ where
 
 /// Query table
 ///
-/// A query table represents a view of the data.
+/// A query view represents a view of the data.
 #[derive(Debug, Default)]
 pub struct QueryTable {
     /// Column names
-    pub names: Option<Vec<String>>,
+    pub names: Vec<String>,
     /// Column types
-    pub types: Option<Vec<Type>>,
+    pub types: Vec<Type>,
     /// Rows
     ///
     /// The 1st Vec is for rows, the 2nd for each row column

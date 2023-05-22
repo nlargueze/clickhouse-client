@@ -5,7 +5,10 @@ use std::io::Cursor;
 use assert_hex::assert_eq_hex;
 
 use crate::{
-    core::{fmt::rowbin::RowBinFormatter, Type, Value},
+    core::{
+        fmt::{rowbin::RowBinFormatter, TableFormatter},
+        Type, Value,
+    },
     query::QueryTable,
 };
 
@@ -17,7 +20,7 @@ fn test_fmt_rowbin_u8() {
     assert_eq_hex!(x_ser, vec![0x01]);
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::UInt8, &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::UInt8).unwrap();
     assert_eq!(x_de, x);
 }
 
@@ -29,7 +32,7 @@ fn test_fmt_rowbin_u32() {
     assert_eq_hex!(x_ser, vec![0xEF, 0xCD, 0xAB, 0x00]);
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::UInt32, &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::UInt32).unwrap();
     assert_eq!(x_de, x);
 }
 
@@ -41,7 +44,7 @@ fn test_fmt_rowbin_bool() {
     assert_eq_hex!(x_ser, vec![0x01]);
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::Bool, &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::Bool).unwrap();
     assert_eq!(x_de, x);
 }
 
@@ -52,7 +55,7 @@ fn test_fmt_rowbin_bool_err() {
 
     let x_ser = vec![0x02];
     let mut reader = Cursor::new(x_ser);
-    let _x_de = Value::parse(&formatter, Type::Bool, &mut reader).unwrap();
+    let _x_de = Value::parse(&formatter, &mut reader, Type::Bool).unwrap();
 }
 
 #[test]
@@ -64,7 +67,7 @@ fn test_fmt_rowbin_str() {
     assert_eq_hex!(x_ser, vec![0x04, 0x61, 0x62, 0x63, 0x64]);
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::String, &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::String).unwrap();
     assert_eq!(x_de, x);
 }
 
@@ -81,7 +84,7 @@ fn test_fmt_rowbin_uuid() {
     assert_eq_hex!(x_ser, id.into_bytes());
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::UUID, &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::UUID).unwrap();
     assert_eq!(x_de, x);
 }
 
@@ -102,7 +105,7 @@ fn test_fmt_rowbin_date() {
     assert_eq_hex!(x_ser, days_since_epoch.to_le_bytes());
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::Date32, &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::Date32).unwrap();
     assert_eq!(x_de, x);
 }
 
@@ -120,23 +123,23 @@ fn test_fmt_rowbin_datetime() {
     assert_eq_hex!(x_ser, (date.unix_timestamp_nanos() as i64).to_le_bytes());
 
     let mut reader = Cursor::new(x_ser);
-    let x_de = Value::parse(&formatter, Type::DateTime64(9), &mut reader).unwrap();
+    let x_de = Value::parse(&formatter, &mut reader, Type::DateTime64(9)).unwrap();
     assert_eq!(x_de, x);
 }
 
 #[test]
 fn test_fmt_rowbin_table() {
     let table = QueryTable {
-        names: Some(vec!["id".to_string(), "name".to_string()]),
-        types: Some(vec![Type::UInt8, Type::String]),
+        names: vec!["id".to_string(), "name".to_string()],
+        types: vec![Type::UInt8, Type::String],
         rows: vec![
             vec![1_u8.into(), "abcd".into()],
             vec![2_u8.into(), "efgh".into()],
         ],
     };
-    let formatter = RowBinFormatter::new();
+    let formatter = RowBinFormatter::new_with_names_and_types();
     let bytes = formatter.format_table(&table);
 
-    let table_de = formatter.parse_table_with_names_and_types(&bytes).unwrap();
-    assert_eq!(table_de.names.unwrap().len(), 2);
+    let table_de = formatter.parse_table(&mut bytes.as_slice(), None).unwrap();
+    assert_eq!(table_de.names.len(), 2);
 }

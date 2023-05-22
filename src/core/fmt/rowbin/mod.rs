@@ -13,25 +13,62 @@ use crate::{
     query::QueryTable,
 };
 
-use super::Formatter;
+use super::{Formatter, TableFormatter};
 
 /// Formatter for RowBinary format
 #[derive(Debug, Default)]
-pub struct RowBinFormatter;
+pub struct RowBinFormatter {
+    /// With names
+    with_names: bool,
+    /// With types
+    with_types: bool,
+}
 
 impl RowBinFormatter {
-    /// Creates a new formatter
+    /// Creates a new formatter without names and types
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates a new formatter with names and types
+    pub fn new_with_names_and_types() -> Self {
+        Self {
+            with_names: true,
+            with_types: true,
+        }
+    }
+
+    /// Creates a new formatter with names
+    pub fn new_with_names() -> Self {
+        Self {
+            with_names: true,
+            with_types: false,
+        }
+    }
+
+    /// With names
+    pub fn with_names(mut self, with_names: bool) -> Self {
+        self.with_names = with_names;
+        self
+    }
+
+    /// With types
+    pub fn with_types(mut self, with_types: bool) -> Self {
+        self.with_types = with_types;
+        if with_types {
+            // NB: names are formatted if types are there
+            self.with_names = true;
+        }
+        self
     }
 }
 
 impl Formatter for RowBinFormatter {
-    type Ok = Vec<u8>;
+    type Target = Vec<u8>;
 
     type Err = Error;
 
-    fn format(&self, value: &Value) -> Self::Ok {
+    fn format(&self, value: &Value) -> Self::Target {
         match value {
             Value::UInt8(u) => u.to_le_bytes().to_vec(),
             Value::UInt16(u) => u.to_le_bytes().to_vec(),
@@ -50,22 +87,20 @@ impl Formatter for RowBinFormatter {
             Value::Decimal32(d) => d.to_le_bytes().to_vec(),
             Value::Decimal64(d) => d.to_le_bytes().to_vec(),
             Value::Decimal128(d) => d.to_le_bytes().to_vec(),
-            Value::Bool(b) => match b {
-                false => vec![0x00],
-                true => vec![0x01],
-            },
+            Value::Bool(b) => {
+                if *b {
+                    vec![0x01]
+                } else {
+                    vec![0x00]
+                }
+            }
             Value::String(s) => {
                 let mut buf = vec![];
                 leb128::write::unsigned(&mut buf, s.len() as u64).unwrap();
                 buf.write_all(s.as_bytes()).unwrap();
                 buf
             }
-            Value::FixedString(s) => {
-                let mut buf = vec![];
-                leb128::write::unsigned(&mut buf, s.len() as u64).unwrap();
-                buf.write_all(s.as_bytes()).unwrap();
-                buf
-            }
+            Value::FixedString(s) => s.as_bytes().to_vec(),
             Value::Date(d) => d.to_le_bytes().to_vec(),
             Value::Date32(d) => d.to_le_bytes().to_vec(),
             Value::DateTime(dt) => dt.to_le_bytes().to_vec(),
@@ -76,286 +111,47 @@ impl Formatter for RowBinFormatter {
             Value::Array(_) => todo!("format array"),
             Value::Map(_) => todo!("format map"),
             Value::Nested(_) => todo!("format nested"),
-            Value::NullableUInt8(x) => match x {
-                Some(x) => {
+            Value::NullableUInt8(_)
+            | Value::NullableUInt16(_)
+            | Value::NullableUInt32(_)
+            | Value::NullableUInt64(_)
+            | Value::NullableUInt128(_)
+            | Value::NullableUInt256(_)
+            | Value::NullableInt8(_)
+            | Value::NullableInt16(_)
+            | Value::NullableInt32(_)
+            | Value::NullableInt64(_)
+            | Value::NullableInt128(_)
+            | Value::NullableInt256(_)
+            | Value::NullableFloat32(_)
+            | Value::NullableFloat64(_)
+            | Value::NullableDecimal32(_)
+            | Value::NullableDecimal64(_)
+            | Value::NullableDecimal128(_)
+            | Value::NullableBool(_)
+            | Value::NullableString(_)
+            | Value::NullableFixedString(_)
+            | Value::NullableDate(_)
+            | Value::NullableDate32(_)
+            | Value::NullableDateTime(_)
+            | Value::NullableDateTime64(_)
+            | Value::NullableUUID(_)
+            | Value::NullableEnum8(_)
+            | Value::NullableEnum16(_) => {
+                if let Some(v) = value.as_non_nullable() {
                     let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UInt8(*x));
-                    buf.append(&mut v);
+                    let mut v_fmt = self.format(&v);
+                    buf.append(&mut v_fmt);
                     buf
-                }
-                None => {
+                } else {
                     vec![0x01]
                 }
-            },
-            Value::NullableUInt16(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UInt16(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableUInt32(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UInt32(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableUInt64(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UInt64(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableUInt128(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UInt128(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableUInt256(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UInt256(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableInt8(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Int8(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableInt16(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Int16(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableInt32(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Int32(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableInt64(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Int64(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableInt128(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Int128(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableInt256(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Int256(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableFloat32(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Float32(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableFloat64(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Float64(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDecimal32(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Decimal32(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDecimal64(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Decimal64(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDecimal128(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Decimal128(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableBool(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Bool(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableString(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::String(x.clone()));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableFixedString(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::FixedString(x.clone()));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDate(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Date(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDate32(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::Date32(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDateTime(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::DateTime(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableDateTime64(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::DateTime64(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
-            Value::NullableUUID(x) => match x {
-                Some(x) => {
-                    let mut buf = vec![0x00];
-                    let mut v = self.format(&Value::UUID(*x));
-                    buf.append(&mut v);
-                    buf
-                }
-                None => {
-                    vec![0x01]
-                }
-            },
+            }
         }
     }
 
     /// Parses a [Value] from a reader and a type
-    fn parse(&self, ty: Type, reader: &mut impl Read) -> Result<Value, Self::Err> {
+    fn parse(&self, reader: &mut impl Read, ty: Type) -> Result<Value, Self::Err> {
         match ty {
             Type::UInt8 => {
                 let mut buf = [0x00_u8; 1];
@@ -493,234 +289,84 @@ impl Formatter for RowBinFormatter {
                 reader.read_exact(&mut buf)?;
                 Ok(Value::DateTime64(i64::from_le_bytes(buf)))
             }
-            Type::Enum8(_) => todo!("enum parsing"),
-            Type::Enum16(_) => todo!("enum parsing"),
             Type::UUID => {
                 let mut buf = [0x00_u8; 16];
                 reader.read_exact(&mut buf)?;
                 Ok(Value::UUID(buf))
             }
+            Type::Enum(_) => todo!("enum parsing"),
+            Type::Enum8(_) => todo!("enum parsing"),
+            Type::Enum16(_) => todo!("enum parsing"),
             Type::Array(_) => todo!("array parsing"),
             Type::Map(_, _) => todo!("map parsing"),
             Type::Nested(_) => todo!("nested parsing"),
             Type::Tuple(_) => todo!("tuple parsing"),
-            // => NULLABLE
-            Type::NullableUInt8 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::UInt8, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableUInt8(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableUInt16 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::UInt8, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableUInt16(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableUInt32 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::UInt32, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableUInt32(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableUInt64 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::UInt64, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableUInt64(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableUInt128 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::UInt128, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableUInt128(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableUInt256 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::UInt256, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableUInt256(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableInt8 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Int8, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableInt8(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableInt16 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Int16, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableInt16(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableInt32 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Int32, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableInt32(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableInt64 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Int64, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableInt64(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableInt128 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Int128, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableInt128(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableInt256 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Int256, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableInt256(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableFloat32 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Float32, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableFloat32(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableFloat64 => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self.parse(Type::Float64, reader)?.as_nullable().unwrap()),
-                    0x01 => Ok(Value::NullableFloat64(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableDecimal(_, _) => {
-                unimplemented!("Decimal value")
-            }
-            Type::NullableDecimal32(x) => {
+            Type::NullableUInt8
+            | Type::NullableUInt16
+            | Type::NullableUInt32
+            | Type::NullableUInt64
+            | Type::NullableUInt128
+            | Type::NullableUInt256
+            | Type::NullableInt8
+            | Type::NullableInt16
+            | Type::NullableInt32
+            | Type::NullableInt64
+            | Type::NullableInt128
+            | Type::NullableInt256
+            | Type::NullableFloat32
+            | Type::NullableFloat64
+            | Type::NullableDecimal(_, _)
+            | Type::NullableDecimal32(_)
+            | Type::NullableDecimal64(_)
+            | Type::NullableDecimal128(_)
+            | Type::NullableDecimal256(_)
+            | Type::NullableBool
+            | Type::NullableString
+            | Type::NullableFixedString(_)
+            | Type::NullableDate
+            | Type::NullableDate32
+            | Type::NullableDateTime
+            | Type::NullableDateTime64(_)
+            | Type::NullableUUID
+            | Type::NullableEnum(_)
+            | Type::NullableEnum8(_)
+            | Type::NullableEnum16(_) => {
                 let mut buf = [0x00_u8; 1];
                 reader.read_exact(&mut buf)?;
                 match buf[0] {
                     0x00 => Ok(self
-                        .parse(Type::Decimal32(x), reader)?
+                        .parse(reader, ty.as_non_nullable())?
                         .as_nullable()
                         .unwrap()),
-                    0x01 => Ok(Value::NullableDecimal32(None)),
+                    0x01 => Ok(Value::null(ty).unwrap()),
                     _ => Err(Error::new("invalid nullable value")),
                 }
-            }
-            Type::NullableDecimal64(x) => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self
-                        .parse(Type::Decimal64(x), reader)?
-                        .as_nullable()
-                        .unwrap()),
-                    0x01 => Ok(Value::NullableDecimal64(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            Type::NullableDecimal128(x) => {
-                let mut buf = [0x00_u8; 1];
-                reader.read_exact(&mut buf)?;
-                match buf[0] {
-                    0x00 => Ok(self
-                        .parse(Type::Decimal128(x), reader)?
-                        .as_nullable()
-                        .unwrap()),
-                    0x01 => Ok(Value::NullableDecimal128(None)),
-                    _ => Err(Error::new("invalid nullable value")),
-                }
-            }
-            // Type::NullableDecimal256(_) => unimplemented!("NullableDecimal256 value"),
-            // Type::NullableBool => {
-            //     let mut buf = [0x00_u8; 1];
-            //     reader.read_exact(&mut buf)?;
-            //     Ok(Value::Decimal128(i128::from_le_bytes(buf)))
-            // }
-            // Type::NullableString => parse_null_var!(self, reader, String, NullableString),
-            // Type::NullableFixedString(_) => unimplemented!("NullableFixedString value"),
-            // Type::NullableDate => parse_null_var!(self, reader, Date, NullableDate),
-            // Type::NullableDate32 => parse_null_var!(self, reader, Date32, NullableDate32),
-            // Type::NullableDateTime => parse_null_var!(self, reader, DateTime, NullableDateTime),
-            // Type::NullableDateTime64(_) => unimplemented!("NullableDateTime64 value"),
-            // Type::NullableEnum8(_) => todo!(),
-            // Type::NullableEnum16(_) => todo!(),
-            // Type::NullableUUID => parse_null_var!(self, reader, UUID, NullableUUID),
-            _ => {
-                todo!()
             }
         }
     }
 }
 
-impl RowBinFormatter {
-    /// Formats a data table
-    pub fn format_table(&self, table: &QueryTable) -> Vec<u8> {
+impl TableFormatter for RowBinFormatter {
+    fn format_table(&self, table: &QueryTable) -> Self::Target {
         let mut buf = vec![];
 
-        // names
-        let mut n_cols = 0;
-        if let Some(names) = &table.names {
-            let n = names.len();
+        // Column names
+        if self.with_names {
+            let n = table.names.len();
             leb128::write::unsigned(&mut buf, n as u64).unwrap();
-            n_cols = n;
-
-            for name in names {
+            for name in &table.names {
                 let mut b = self.format(&name.to_string().into());
                 buf.append(&mut b);
             }
         }
 
-        // types
-        if let Some(types) = &table.types {
+        // Column types
+        if self.with_types {
             debug_assert!(
-                n_cols > 0,
-                "table column names must be provided when types are provided"
+                table.types.len() == table.names.len(),
+                "mismatch between the number of column names and types"
             );
-            debug_assert!(
-                types.len() == n_cols,
-                "mismatch between the number of types and columns"
-            );
-            for ty in types {
+            for ty in &table.types {
                 let mut b = self.format(&ty.to_string().into());
                 buf.append(&mut b);
             }
@@ -737,117 +383,65 @@ impl RowBinFormatter {
         buf
     }
 
-    /// Parses a table with names and types
-    ///
-    /// This is the `RowBinaryWithNamesAndTypes` format
-    pub fn parse_table_with_names_and_types(&self, bytes: &[u8]) -> Result<QueryTable, Error> {
-        let mut cursor = Cursor::new(bytes);
-
-        let names = self.parse_table_names_internal(&mut cursor)?;
-        let types = self.parse_table_types_internal(&mut cursor, names.len())?;
-        let rows = self.parse_table_rows_internal(&mut cursor, &types)?;
-
-        Ok(QueryTable {
-            names: Some(names),
-            types: Some(types),
-            rows,
-        })
-    }
-
-    /// Parses a table with names (and no types)
-    ///
-    /// This is the `RowBinaryWithNames` format.
-    /// Types must be provided to parse the rows
-    pub fn parse_table_with_names(
+    fn parse_table(
         &self,
-        bytes: &[u8],
-        types: &[Type],
-    ) -> Result<QueryTable, Error> {
+        reader: &mut impl Read,
+        types: Option<&[&Type]>,
+    ) -> Result<QueryTable, Self::Err> {
+        // convert to cursor
+        let mut bytes = vec![];
+        reader.read_to_end(&mut bytes)?;
         let mut cursor = Cursor::new(bytes);
 
-        let names = self.parse_table_names_internal(&mut cursor)?;
-        if names.len() != types.len() {
-            return Err(Error(
-                "Mismatch between the number of columns and types".to_string(),
-            ));
-        }
-        let rows = self.parse_table_rows_internal(&mut cursor, types)?;
-
-        Ok(QueryTable {
-            names: Some(names),
-            types: Some(types.to_vec()),
-            rows,
-        })
-    }
-
-    /// Parses a table without names or types
-    ///
-    /// This is the base `RowBinary` format
-    pub fn parse_table(&self, bytes: &[u8], types: &[Type]) -> Result<QueryTable, Error> {
-        let mut cursor = Cursor::new(bytes);
-
-        let names = self.parse_table_names_internal(&mut cursor)?;
-        if names.len() != types.len() {
-            return Err(Error(
-                "Mismatch between the number of columns and types".to_string(),
-            ));
-        }
-        let rows = self.parse_table_rows_internal(&mut cursor, types)?;
-
-        Ok(QueryTable {
-            names: Some(names),
-            types: Some(types.to_vec()),
-            rows,
-        })
-    }
-
-    /// Parses a table names (internal method)
-    fn parse_table_names_internal(&self, cursor: &mut Cursor<&[u8]>) -> Result<Vec<String>, Error> {
-        let n = leb128::read::unsigned(cursor).unwrap();
+        // column names
         let mut names = vec![];
-        for _i in 0..n {
-            let value = self.parse(Type::String, cursor)?;
-            let name = match value {
-                Value::String(s) => s,
-                _ => unreachable!(),
-            };
-            names.push(name);
+        if self.with_names {
+            let n = leb128::read::unsigned(&mut cursor).unwrap();
+            for _i in 0..n {
+                let value = self.parse(&mut cursor, Type::String)?;
+                let name = match value {
+                    Value::String(s) => s,
+                    _ => unreachable!(),
+                };
+                names.push(name);
+            }
         }
-        Ok(names)
-    }
 
-    /// Parses a table types (internal method)
-    fn parse_table_types_internal(
-        &self,
-        cursor: &mut Cursor<&[u8]>,
-        n: usize,
-    ) -> Result<Vec<Type>, Error> {
-        let mut types = vec![];
-        for _i in 0..n {
-            let value = self.parse(Type::String, cursor)?;
-            let ty_str = match value {
-                Value::String(s) => s,
-                _ => unreachable!(),
-            };
-            let ty = ty_str.parse()?;
-            types.push(ty);
+        // column types
+        let n = names.len();
+        let mut types_read = vec![];
+        if self.with_types {
+            for _i in 0..n {
+                let value = self.parse(&mut cursor, Type::String)?;
+                let ty_str = match value {
+                    Value::String(s) => s,
+                    _ => unreachable!(),
+                };
+                let ty: Type = ty_str.parse()?;
+                types_read.push(ty);
+            }
         }
-        Ok(types)
-    }
+        let types = if !types_read.is_empty() {
+            types_read
+        } else {
+            match types {
+                Some(list) => list.iter().map(|ty| (*ty).clone()).collect(),
+                None => {
+                    return Err(Error(
+                        "table types are missing, and must be provided to parse the values"
+                            .to_string(),
+                    ));
+                }
+            }
+        };
 
-    /// Parses a table data (internal method)
-    fn parse_table_rows_internal(
-        &self,
-        cursor: &mut Cursor<&[u8]>,
-        types: &[Type],
-    ) -> Result<Vec<Vec<Value>>, Error> {
-        // loop on all rows until everything is read
+        // values
         let mut rows = vec![];
         'l_rows: loop {
             // loop on each columns
             let mut cols = vec![];
-            for ty in types {
-                let value = self.parse(ty.clone(), cursor)?;
+            for ty in &types {
+                let value = self.parse(&mut cursor, ty.clone())?;
                 cols.push(value);
             }
             rows.push(cols);
@@ -858,6 +452,6 @@ impl RowBinFormatter {
             }
         }
 
-        Ok(rows)
+        Ok(QueryTable { names, types, rows })
     }
 }

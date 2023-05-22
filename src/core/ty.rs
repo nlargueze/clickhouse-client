@@ -9,50 +9,30 @@ use crate::error::Error;
 
 /// Data type
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum Type {
-    /// UInt8
     UInt8,
-    /// UInt16
     UInt16,
-    /// UInt32
     UInt32,
-    /// UInt64
     UInt64,
-    /// UInt128
     UInt128,
-    /// UInt256
     UInt256,
-    /// Int8
     Int8,
-    /// UInt16
     Int16,
-    /// UInt32
     Int32,
-    /// UInt64
     Int64,
-    /// UInt128
     Int128,
-    /// UInt256
     Int256,
-    /// Float32
     Float32,
-    /// UInt64
     Float64,
     /// Decimal (precision ∈ [1:76], scale ∈ [0:P])
     Decimal(u8, u8),
-    /// Decimal32
     Decimal32(u8),
-    /// Decimal64
     Decimal64(u8),
-    /// Decimal128
     Decimal128(u8),
-    /// Decimal256
     Decimal256(u8),
-    /// Boolean
     Bool,
-    /// String
     String,
-    /// Fixed string
     FixedString(usize),
     /// Date (number of days since 1970-01-01, 2 bytes)
     Date,
@@ -64,6 +44,10 @@ pub enum Type {
     ///
     /// Precision [0:9] defines the resolution, eg 3=ms, 6=us, 9=ns
     DateTime64(u8),
+    /// Enum (256 values, i8)
+    ///
+    /// Keys and indices must be unique
+    Enum(Vec<(String, Option<i16>)>),
     /// Enum (256 values, i8)
     ///
     /// Keys and indices must be unique
@@ -93,58 +77,37 @@ pub enum Type {
     ///
     /// Each element can have a different type
     Tuple(Vec<Box<Type>>),
-    /// Nullable UInt8
     NullableUInt8,
-    /// Nullable UInt16
     NullableUInt16,
-    /// Nullable UInt32
     NullableUInt32,
-    /// Nullable UInt64
     NullableUInt64,
-    /// Nullable UInt128
     NullableUInt128,
-    /// Nullable UInt256
     NullableUInt256,
-    /// Nullable Int8
     NullableInt8,
-    /// Nullable Int16
     NullableInt16,
-    /// Nullable Int32
     NullableInt32,
-    /// Nullable Int64
     NullableInt64,
-    /// Nullable Int128
     NullableInt128,
-    /// Nullable Int256
     NullableInt256,
-    /// Nullable Float32
     NullableFloat32,
-    /// Nullable Float64
     NullableFloat64,
-    /// Nullable Decimal
     NullableDecimal(u8, u8),
-    /// Nullable Decimal32
     NullableDecimal32(u8),
-    /// Nullable Decimal64
     NullableDecimal64(u8),
-    /// Nullable Decimal128
     NullableDecimal128(u8),
-    /// Nullable Decimal256
     NullableDecimal256(u8),
-    /// Nullable Bool
     NullableBool,
-    /// Nullable String
     NullableString,
-    /// Nullable FixedString
     NullableFixedString(usize),
-    /// Nullable Date
     NullableDate,
-    /// Nullable Date32
     NullableDate32,
-    /// Nullable DateTime
     NullableDateTime,
-    /// Nullable DateTime64
     NullableDateTime64(u8),
+    NullableUUID,
+    /// Enum (256 values)
+    ///
+    /// Keys and indices must be unique
+    NullableEnum(Vec<(String, Option<i16>)>),
     /// Enum (256 values)
     ///
     /// Keys and indices must be unique
@@ -153,52 +116,48 @@ pub enum Type {
     ///
     /// Keys and indices must be unique
     NullableEnum16(Vec<(String, Option<i16>)>),
-    /// Nullable UUID
-    NullableUUID,
 }
 
 impl Type {
     /// Returns the nullable variant
     ///
-    /// # Errors
+    /// # Result
     ///
-    /// There is an error if the type is not nullable
-    fn nullable_variant(&self) -> Result<Type, Error> {
+    /// Returns None if the type is not nullable, or itself if the type is already Nullable.
+    pub fn as_nullable(&self) -> Option<Type> {
         match self {
-            Type::UInt8 => Ok(Type::NullableUInt8),
-            Type::UInt16 => Ok(Type::NullableUInt16),
-            Type::UInt32 => Ok(Type::NullableUInt32),
-            Type::UInt64 => Ok(Type::NullableUInt64),
-            Type::UInt128 => Ok(Type::NullableUInt128),
-            Type::UInt256 => Ok(Type::NullableUInt256),
-            Type::Int8 => Ok(Type::NullableInt8),
-            Type::Int16 => Ok(Type::NullableInt16),
-            Type::Int32 => Ok(Type::NullableInt32),
-            Type::Int64 => Ok(Type::NullableInt64),
-            Type::Int128 => Ok(Type::NullableInt128),
-            Type::Int256 => Ok(Type::NullableInt256),
-            Type::Float32 => Ok(Type::NullableFloat32),
-            Type::Float64 => Ok(Type::NullableFloat64),
-            Type::Decimal(s, p) => Ok(Type::NullableDecimal(*s, *p)),
-            Type::Decimal32(s) => Ok(Type::Decimal32(*s)),
-            Type::Decimal64(s) => Ok(Type::Decimal64(*s)),
-            Type::Decimal128(s) => Ok(Type::Decimal128(*s)),
-            Type::Decimal256(s) => Ok(Type::Decimal256(*s)),
-            Type::Bool => Ok(Type::NullableBool),
-            Type::String => Ok(Type::NullableString),
-            Type::FixedString(n) => Ok(Type::NullableFixedString(*n)),
-            Type::Date => Ok(Type::NullableDate),
-            Type::Date32 => Ok(Type::NullableDate32),
-            Type::DateTime => Ok(Type::NullableDateTime),
-            Type::DateTime64(p) => Ok(Type::NullableDateTime64(*p)),
-            Type::Enum8(map) => Ok(Type::NullableEnum8(map.clone())),
-            Type::Enum16(map) => Ok(Type::NullableEnum16(map.clone())),
-            Type::UUID => Ok(Type::NullableUUID),
-            Type::Array(_)
-            | Type::Map(_, _)
-            | Type::Nested(_)
-            | Type::Tuple(_)
-            | Type::NullableUInt8
+            Type::UInt8 => Some(Type::NullableUInt8),
+            Type::UInt16 => Some(Type::NullableUInt16),
+            Type::UInt32 => Some(Type::NullableUInt32),
+            Type::UInt64 => Some(Type::NullableUInt64),
+            Type::UInt128 => Some(Type::NullableUInt128),
+            Type::UInt256 => Some(Type::NullableUInt256),
+            Type::Int8 => Some(Type::NullableInt8),
+            Type::Int16 => Some(Type::NullableInt16),
+            Type::Int32 => Some(Type::NullableInt32),
+            Type::Int64 => Some(Type::NullableInt64),
+            Type::Int128 => Some(Type::NullableInt128),
+            Type::Int256 => Some(Type::NullableInt256),
+            Type::Float32 => Some(Type::NullableFloat32),
+            Type::Float64 => Some(Type::NullableFloat64),
+            Type::Decimal(s, p) => Some(Type::NullableDecimal(*s, *p)),
+            Type::Decimal32(s) => Some(Type::Decimal32(*s)),
+            Type::Decimal64(s) => Some(Type::Decimal64(*s)),
+            Type::Decimal128(s) => Some(Type::Decimal128(*s)),
+            Type::Decimal256(s) => Some(Type::Decimal256(*s)),
+            Type::Bool => Some(Type::NullableBool),
+            Type::String => Some(Type::NullableString),
+            Type::FixedString(n) => Some(Type::NullableFixedString(*n)),
+            Type::Date => Some(Type::NullableDate),
+            Type::Date32 => Some(Type::NullableDate32),
+            Type::DateTime => Some(Type::NullableDateTime),
+            Type::DateTime64(p) => Some(Type::NullableDateTime64(*p)),
+            Type::UUID => Some(Type::NullableUUID),
+            Type::Enum(map) => Some(Type::NullableEnum(map.clone())),
+            Type::Enum8(map) => Some(Type::NullableEnum8(map.clone())),
+            Type::Enum16(map) => Some(Type::NullableEnum16(map.clone())),
+            Type::Array(_) | Type::Map(_, _) | Type::Nested(_) | Type::Tuple(_) => None,
+            Type::NullableUInt8
             | Type::NullableUInt16
             | Type::NullableUInt32
             | Type::NullableUInt64
@@ -224,9 +183,80 @@ impl Type {
             | Type::NullableDate32
             | Type::NullableDateTime
             | Type::NullableDateTime64(_)
+            | Type::NullableUUID
+            | Type::NullableEnum(_)
             | Type::NullableEnum8(_)
-            | Type::NullableEnum16(_)
-            | Type::NullableUUID => Err(Error(format!("Type {} is not nullable", self))),
+            | Type::NullableEnum16(_) => Some(self.clone()),
+        }
+    }
+
+    /// Returns the non-nullable variant
+    pub fn as_non_nullable(&self) -> Type {
+        match self {
+            Type::UInt8
+            | Type::UInt16
+            | Type::UInt32
+            | Type::UInt64
+            | Type::UInt128
+            | Type::UInt256
+            | Type::Int8
+            | Type::Int16
+            | Type::Int32
+            | Type::Int64
+            | Type::Int128
+            | Type::Int256
+            | Type::Float32
+            | Type::Float64
+            | Type::Decimal(_, _)
+            | Type::Decimal32(_)
+            | Type::Decimal64(_)
+            | Type::Decimal128(_)
+            | Type::Decimal256(_)
+            | Type::Bool
+            | Type::String
+            | Type::FixedString(_)
+            | Type::Date
+            | Type::Date32
+            | Type::DateTime
+            | Type::DateTime64(_)
+            | Type::UUID
+            | Type::Enum(_)
+            | Type::Enum8(_)
+            | Type::Enum16(_)
+            | Type::Array(_)
+            | Type::Map(_, _)
+            | Type::Nested(_)
+            | Type::Tuple(_) => self.clone(),
+            Type::NullableUInt8 => Type::UInt8,
+            Type::NullableUInt16 => Type::UInt16,
+            Type::NullableUInt32 => Type::UInt32,
+            Type::NullableUInt64 => Type::UInt64,
+            Type::NullableUInt128 => Type::UInt128,
+            Type::NullableUInt256 => Type::UInt256,
+            Type::NullableInt8 => Type::Int8,
+            Type::NullableInt16 => Type::Int16,
+            Type::NullableInt32 => Type::Int32,
+            Type::NullableInt64 => Type::Int64,
+            Type::NullableInt128 => Type::Int128,
+            Type::NullableInt256 => Type::Int256,
+            Type::NullableFloat32 => Type::Float32,
+            Type::NullableFloat64 => Type::Float64,
+            Type::NullableDecimal(p, s) => Type::Decimal(*p, *s),
+            Type::NullableDecimal32(p) => Type::Decimal32(*p),
+            Type::NullableDecimal64(p) => Type::Decimal64(*p),
+            Type::NullableDecimal128(p) => Type::Decimal128(*p),
+            Type::NullableDecimal256(p) => Type::Decimal256(*p),
+            Type::NullableBool => Type::Bool,
+            Type::NullableString => Type::String,
+            Type::NullableFixedString(n) => Type::FixedString(*n),
+            Type::NullableDate => Type::Date,
+            Type::NullableDate32 => Type::Date32,
+            Type::NullableDateTime => Type::DateTime,
+            Type::NullableDateTime64(p) => Type::DateTime64(*p),
+            Type::NullableUUID => Type::UUID,
+            Type::NullableEnum(map) => Type::Enum(map.clone()),
+            Type::NullableEnum8(map) => Type::Enum8(map.clone()),
+            Type::NullableEnum16(map) => Type::Enum16(map.clone()),
         }
     }
 }
@@ -260,6 +290,22 @@ impl std::fmt::Display for Type {
             Type::Date32 => "Date32".into(),
             Type::DateTime => "DateTime".into(),
             Type::DateTime64(p) => format!("DateTime64({p})"),
+            Type::UUID => "UUID".into(),
+            Type::Enum(vars) => {
+                format!(
+                    "Enum8({})",
+                    vars.iter()
+                        .map(|(key, idx)| {
+                            let idx_str = match idx {
+                                Some(i) => format!(" = {i}"),
+                                None => "".to_string(),
+                            };
+                            format!("'{key}'{idx_str}")
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
             Type::Enum8(vars) => {
                 format!(
                     "Enum8({})",
@@ -290,7 +336,6 @@ impl std::fmt::Display for Type {
                         .join(", ")
                 )
             }
-            Type::UUID => "UUID".into(),
             Type::Array(t) => format!("Array({t})"),
             Type::Map(k, v) => format!("Map({k}, {v})"),
             Type::Tuple(types) => {
@@ -313,64 +358,38 @@ impl std::fmt::Display for Type {
                         .join(", ")
                 )
             }
-            // nullable
-            Type::NullableUInt8 => "Nullable(UInt8)".into(),
-            Type::NullableUInt16 => "Nullable(UInt16)".into(),
-            Type::NullableUInt32 => "Nullable(UInt32)".into(),
-            Type::NullableUInt64 => "Nullable(UInt64)".into(),
-            Type::NullableUInt128 => "Nullable(UInt128)".into(),
-            Type::NullableUInt256 => "Nullable(UInt256)".into(),
-            Type::NullableInt8 => "Nullable(Int8)".into(),
-            Type::NullableInt16 => "Nullable(Int16)".into(),
-            Type::NullableInt32 => "Nullable(Int32)".into(),
-            Type::NullableInt64 => "Nullable(Int64)".into(),
-            Type::NullableInt128 => "Nullable(Int128)".into(),
-            Type::NullableInt256 => "Nullable(Int256)".into(),
-            Type::NullableFloat32 => "Nullable(Float32)".into(),
-            Type::NullableFloat64 => "Nullable(Float64)".into(),
-            Type::NullableDecimal(p, s) => format!("Nullable(Decimal({p},{s}))"),
-            Type::NullableDecimal32(s) => format!("Nullable(Decimal32({s}))"),
-            Type::NullableDecimal64(s) => format!("Nullable(Decimal64({s}))"),
-            Type::NullableDecimal128(s) => format!("Nullable(Decimal128({s}))"),
-            Type::NullableDecimal256(s) => format!("Nullable(Decimal256({s}))"),
-            Type::NullableBool => "Nullable(Bool)".into(),
-            Type::NullableString => "Nullable(String)".into(),
-            Type::NullableFixedString(n) => format!("Nullable(FixedString({n}))"),
-            Type::NullableDate => "Nullable(Date)".into(),
-            Type::NullableDate32 => "Nullable(Date32)".into(),
-            Type::NullableDateTime => "Nullable(DateTime)".into(),
-            Type::NullableDateTime64(p) => format!("Nullable(DateTime64({p}))"),
-            Type::NullableEnum8(vars) => {
-                format!(
-                    "Nullable(Enum8({}))",
-                    vars.iter()
-                        .map(|(key, idx)| {
-                            let idx_str = match idx {
-                                Some(i) => format!(" = {i}"),
-                                None => "".to_string(),
-                            };
-                            format!("'{key}'{idx_str}")
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
+            Type::NullableUInt8
+            | Type::NullableUInt16
+            | Type::NullableUInt32
+            | Type::NullableUInt64
+            | Type::NullableUInt128
+            | Type::NullableUInt256
+            | Type::NullableInt8
+            | Type::NullableInt16
+            | Type::NullableInt32
+            | Type::NullableInt64
+            | Type::NullableInt128
+            | Type::NullableInt256
+            | Type::NullableFloat32
+            | Type::NullableFloat64
+            | Type::NullableDecimal(_, _)
+            | Type::NullableDecimal32(_)
+            | Type::NullableDecimal64(_)
+            | Type::NullableDecimal128(_)
+            | Type::NullableDecimal256(_)
+            | Type::NullableBool
+            | Type::NullableString
+            | Type::NullableFixedString(_)
+            | Type::NullableDate
+            | Type::NullableDate32
+            | Type::NullableDateTime
+            | Type::NullableDateTime64(_)
+            | Type::NullableUUID
+            | Type::NullableEnum(_)
+            | Type::NullableEnum8(_)
+            | Type::NullableEnum16(_) => {
+                format!("Nullable({})", self.as_non_nullable())
             }
-            Type::NullableEnum16(vars) => {
-                format!(
-                    "Nullable(Enum16({}))",
-                    vars.iter()
-                        .map(|(key, idx)| {
-                            let idx_str = match idx {
-                                Some(i) => format!(" = {i}"),
-                                None => "".to_string(),
-                            };
-                            format!("'{key}'{idx_str}")
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-            Type::NullableUUID => "Nullable(UUID)".into(),
         };
         write!(f, "{s}")
     }
@@ -418,10 +437,12 @@ impl FromStr for Type {
                     eprintln!("YYY={:?}", m.range());
                     // Nullable should end at the end of the string
                     if m.end() + 1 < s.len() {
-                        return Err(Error(format!("Type '{s}' is nullable ')' ")));
+                        return Err(Error(format!("Type '{s}' is nullable")));
                     }
                     let inner_ty = m.as_str().parse::<Type>()?;
-                    return inner_ty.nullable_variant();
+                    return inner_ty
+                        .as_nullable()
+                        .ok_or(Error(format!("Type '{s}' is nullable")));
                 }
             }
         }

@@ -24,10 +24,10 @@ impl SqlFormatter {
 }
 
 impl Formatter for SqlFormatter {
-    type Ok = String;
+    type Target = String;
     type Err = Error;
 
-    fn format(&self, value: &Value) -> Self::Ok {
+    fn format(&self, value: &Value) -> Self::Target {
         match value {
             Value::UInt8(u) => u.to_string(),
             Value::UInt16(u) => u.to_string(),
@@ -144,110 +144,44 @@ impl Formatter for SqlFormatter {
                 format!("{{{kvs}}}")
             }
             Value::Nested(nested) => self.format(&Value::Map(nested.clone())),
-            Value::NullableUInt8(u) => match u {
-                Some(u) => self.format(&Value::UInt8(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableUInt16(u) => match u {
-                Some(u) => self.format(&Value::UInt16(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableUInt32(u) => match u {
-                Some(u) => self.format(&Value::UInt32(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableUInt64(u) => match u {
-                Some(u) => self.format(&Value::UInt64(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableUInt128(u) => match u {
-                Some(u) => self.format(&Value::UInt128(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableUInt256(u) => match u {
-                Some(u) => self.format(&Value::UInt256(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableInt8(i) => match i {
-                Some(i) => self.format(&Value::Int8(*i)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableInt16(i) => match i {
-                Some(i) => self.format(&Value::Int16(*i)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableInt32(i) => match i {
-                Some(i) => self.format(&Value::Int32(*i)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableInt64(i) => match i {
-                Some(i) => self.format(&Value::Int64(*i)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableInt128(i) => match i {
-                Some(i) => self.format(&Value::Int128(*i)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableInt256(u) => match u {
-                Some(u) => self.format(&Value::Int256(*u)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableFloat32(f) => match f {
-                Some(f) => self.format(&Value::Float32(*f)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableFloat64(f) => match f {
-                Some(f) => self.format(&Value::Float64(*f)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDecimal32(d) => match d {
-                Some(d) => self.format(&Value::Decimal32(*d)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDecimal64(d) => match d {
-                Some(d) => self.format(&Value::Decimal64(*d)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDecimal128(d) => match d {
-                Some(d) => self.format(&Value::Decimal128(*d)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableBool(b) => match b {
-                Some(b) => self.format(&Value::Bool(*b)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableString(s) => match s {
-                Some(s) => self.format(&Value::String(s.to_string())),
-                None => "NULL".to_string(),
-            },
-            Value::NullableFixedString(s) => match s {
-                Some(s) => self.format(&Value::FixedString(s.to_string())),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDate(d) => match d {
-                Some(d) => self.format(&Value::Date(*d)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDate32(d) => match d {
-                Some(d) => self.format(&Value::Date32(*d)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDateTime(dt) => match dt {
-                Some(dt) => self.format(&Value::DateTime(*dt)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableDateTime64(dt) => match dt {
-                Some(dt) => self.format(&Value::DateTime64(*dt)),
-                None => "NULL".to_string(),
-            },
-            Value::NullableUUID(id) => match id {
-                Some(id) => self.format(&Value::UUID(*id)),
-                None => "NULL".to_string(),
-            },
+            // Nullable values
+            Value::NullableUInt8(_)
+            | Value::NullableUInt16(_)
+            | Value::NullableUInt32(_)
+            | Value::NullableUInt64(_)
+            | Value::NullableUInt128(_)
+            | Value::NullableUInt256(_)
+            | Value::NullableInt8(_)
+            | Value::NullableInt16(_)
+            | Value::NullableInt32(_)
+            | Value::NullableInt64(_)
+            | Value::NullableInt128(_)
+            | Value::NullableInt256(_)
+            | Value::NullableFloat32(_)
+            | Value::NullableFloat64(_)
+            | Value::NullableDecimal32(_)
+            | Value::NullableDecimal64(_)
+            | Value::NullableDecimal128(_)
+            | Value::NullableBool(_)
+            | Value::NullableString(_)
+            | Value::NullableFixedString(_)
+            | Value::NullableDate(_)
+            | Value::NullableDate32(_)
+            | Value::NullableDateTime(_)
+            | Value::NullableDateTime64(_)
+            | Value::NullableUUID(_)
+            | Value::NullableEnum8(_)
+            | Value::NullableEnum16(_) => {
+                if let Some(v) = value.as_non_nullable() {
+                    self.format(&v)
+                } else {
+                    "NULL".to_string()
+                }
+            }
         }
     }
 
-    fn parse(&self, _ty: Type, _reader: &mut impl Read) -> Result<Value, Self::Err> {
+    fn parse(&self, _reader: &mut impl Read, _ty: Type) -> Result<Value, Self::Err> {
         unimplemented!("SQL parsing")
     }
 }

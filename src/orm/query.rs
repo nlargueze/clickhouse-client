@@ -2,7 +2,7 @@
 //!
 //! ORM queries use the `BinaryRow` format to get data from and into the DB.
 
-use crate::{core::fmt::rowbin::RowBinFormatter, error::Error, interface::Interface};
+use crate::{error::Error, interface::Interface};
 
 use super::{OrmExt, OrmQuery};
 
@@ -52,9 +52,9 @@ where
         );
 
         let options = self.client.raw_query_opts();
-        let bytes = self.client.interface.raw_query(&query, options).await?;
+        let _bytes = self.client.interface.raw_query(&query, options).await?;
 
-        let formatter = RowBinFormatter;
+        // let formatter = RowBinFormatter::new();
         // formatter.parse_table(bytes, types);
         // QueryTable::from_schema(&schema).fill_with(format);
         // formatter.parse(&bytes).unwrap();

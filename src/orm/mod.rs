@@ -19,14 +19,15 @@ use std::marker::PhantomData;
 
 use prelude::*;
 
-fn global_data() -> &'static Vec<u8> {
-    static INSTANCE: once_cell::sync::OnceCell<Vec<u8>> = once_cell::sync::OnceCell::new();
-    INSTANCE.get_or_init(|| {
-        let mut v = Vec::new();
-        v.push(1);
-        v
-    })
-}
+// fn global_data() -> &'static Vec<u8> {
+//     static INSTANCE: once_cell::sync::OnceCell<Vec<u8>> = once_cell::sync::OnceCell::new();
+//     INSTANCE.get_or_init(|| {
+//         let mut v = Vec::new();
+//         v.push(1);
+//         v
+//     })
+// }
+
 // /// Test record
 // #[derive(Debug, Orm)]
 // #[db(table = "records")]
