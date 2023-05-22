@@ -1,7 +1,7 @@
 //! Queries
 
 use crate::{
-    core::{fmt::sql::SqlFormatter, Value},
+    core::{fmt::sql::SqlFormatter, Type, Value},
     error::Error,
     interface::Interface,
     Client,
@@ -86,4 +86,19 @@ where
             .field("interface", &self.client)
             .finish()
     }
+}
+
+/// Query table
+///
+/// A query table represents a view of the data.
+#[derive(Debug, Default)]
+pub struct QueryTable {
+    /// Column names
+    pub names: Option<Vec<String>>,
+    /// Column types
+    pub types: Option<Vec<Type>>,
+    /// Rows
+    ///
+    /// The 1st Vec is for rows, the 2nd for each row column
+    pub rows: Vec<Vec<Value>>,
 }

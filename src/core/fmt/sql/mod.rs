@@ -43,6 +43,9 @@ impl Formatter for SqlFormatter {
             Value::Int256(_i) => todo!("Int256 sql formatting"),
             Value::Float32(f) => f.to_string(),
             Value::Float64(f) => f.to_string(),
+            Value::Decimal32(d) => d.to_string(),
+            Value::Decimal64(d) => d.to_string(),
+            Value::Decimal128(d) => d.to_string(),
             Value::Bool(b) => match b {
                 false => "0".to_string(),
                 true => "1".to_string(),
@@ -119,6 +122,8 @@ impl Formatter for SqlFormatter {
                     unimplemented!("UUI formatting requires the uui feature");
                 }
             }
+            Value::Enum8(i) => i.to_string(),
+            Value::Enum16(i) => i.to_string(),
             Value::Array(arr) => {
                 let values = arr
                     .iter()
@@ -159,6 +164,10 @@ impl Formatter for SqlFormatter {
                 Some(u) => self.format(&Value::UInt128(*u)),
                 None => "NULL".to_string(),
             },
+            Value::NullableUInt256(u) => match u {
+                Some(u) => self.format(&Value::UInt256(*u)),
+                None => "NULL".to_string(),
+            },
             Value::NullableInt8(i) => match i {
                 Some(i) => self.format(&Value::Int8(*i)),
                 None => "NULL".to_string(),
@@ -179,12 +188,28 @@ impl Formatter for SqlFormatter {
                 Some(i) => self.format(&Value::Int128(*i)),
                 None => "NULL".to_string(),
             },
+            Value::NullableInt256(u) => match u {
+                Some(u) => self.format(&Value::Int256(*u)),
+                None => "NULL".to_string(),
+            },
             Value::NullableFloat32(f) => match f {
                 Some(f) => self.format(&Value::Float32(*f)),
                 None => "NULL".to_string(),
             },
             Value::NullableFloat64(f) => match f {
                 Some(f) => self.format(&Value::Float64(*f)),
+                None => "NULL".to_string(),
+            },
+            Value::NullableDecimal32(d) => match d {
+                Some(d) => self.format(&Value::Decimal32(*d)),
+                None => "NULL".to_string(),
+            },
+            Value::NullableDecimal64(d) => match d {
+                Some(d) => self.format(&Value::Decimal64(*d)),
+                None => "NULL".to_string(),
+            },
+            Value::NullableDecimal128(d) => match d {
+                Some(d) => self.format(&Value::Decimal128(*d)),
                 None => "NULL".to_string(),
             },
             Value::NullableBool(b) => match b {

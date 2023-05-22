@@ -4,7 +4,10 @@ use std::io::Cursor;
 
 use assert_hex::assert_eq_hex;
 
-use crate::core::{fmt::rowbin::RowBinFormatter, DataTable, Type, Value};
+use crate::{
+    core::{fmt::rowbin::RowBinFormatter, Type, Value},
+    query::QueryTable,
+};
 
 #[test]
 fn test_fmt_rowbin_u8() {
@@ -123,7 +126,7 @@ fn test_fmt_rowbin_datetime() {
 
 #[test]
 fn test_fmt_rowbin_table() {
-    let table = DataTable {
+    let table = QueryTable {
         names: Some(vec!["id".to_string(), "name".to_string()]),
         types: Some(vec![Type::UInt8, Type::String]),
         rows: vec![

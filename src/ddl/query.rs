@@ -1,25 +1,8 @@
 //! DDL queries
 
-use crate::{ddl::TableSchema, error::Error, interface::Interface, Client};
+use crate::{core::TableSchema, error::Error, interface::Interface};
 
-impl<T> Client<T>
-where
-    T: Interface,
-{
-    /// Prepares a DDL query
-    pub fn ddl(&self) -> DdlQuery<T> {
-        DdlQuery { client: self }
-    }
-}
-
-/// DDL query
-pub struct DdlQuery<'a, T>
-where
-    T: Interface,
-{
-    /// Client
-    client: &'a Client<T>,
-}
+use super::DdlQuery;
 
 impl<'a, T> DdlQuery<'a, T>
 where

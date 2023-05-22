@@ -3,11 +3,11 @@
 //! This is the core module for Clickhouse
 
 pub mod fmt;
-mod tbl;
+mod sch;
 mod ty;
 mod val;
 
-pub use tbl::*;
+pub use sch::*;
 pub use ty::*;
 pub use val::*;
 

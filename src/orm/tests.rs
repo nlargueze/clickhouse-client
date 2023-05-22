@@ -1,35 +1,13 @@
 //! Tests
 
-use clickhouse_client_macros::DbRecord;
-
-use crate::{
-    schema::{ColSchema, TableSchema},
-    HttpClient,
-};
-
-use super::prelude::*;
-
-// /// Init
-// async fn init() -> &'static HttpClient {
-//     let client = crate::tests::init().await;
-//     INIT_DB
-//         .get_or_init(|| async {
-//             client
-//                 .orm::<TestRecord>()
-//                 .create_table("MergeTree()")
-//                 .await
-//                 .unwrap();
-//         })
-//         .await;
-//     client
-// }
+// use super::prelude::*;
 
 // /// Test record
-// #[derive(DbRecord)]
+// #[derive(Debug, Orm)]
 // #[db(table = "records")]
 // struct TestRecord {
 //     /// ID
-//     #[db(primary)]
+//     #[db(primary_key)]
 //     id: u8,
 //     /// Name
 //     name: String,

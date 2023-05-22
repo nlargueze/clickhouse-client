@@ -73,6 +73,19 @@ fn test_type_dec256() {
 }
 
 #[test]
+fn test_type_enum() {
+    let ty = Type::Enum8(vec![
+        ("variant_1".into(), Some(1)),
+        ("variant_2".into(), Some(2)),
+    ]);
+    let ty_str = ty.to_string();
+    assert_eq!(ty_str, "Enum8('variant_1' = 1, 'variant_2' = 2)");
+
+    let ty_parsed: Type = ty_str.parse().unwrap();
+    assert_eq!(ty_parsed, ty);
+}
+
+#[test]
 fn test_type_array() {
     let ty = Type::Array(Box::new(Type::UInt8));
     let ty_str = ty.to_string();

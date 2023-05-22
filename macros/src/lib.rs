@@ -2,19 +2,19 @@
 //!
 //! # [derive(DbRecord)]
 //!
-//! This macro parses a struct and implements the trait `DbRecordExt`
+//! This macro parses a struct and implements the trait `clickhouse-client::orm::OrmExt`
 
 use proc_macro::TokenStream;
 use proc_macro_error::{abort, proc_macro_error, OptionExt};
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr};
 
-/// A macro to derive the trait `DbRecordExt`
+/// A macro to derive the trait `OrmExt`
 ///
 /// # Prerequisites
 ///
-/// - each field Rust type must implement the trait `DbTypeExt`
-/// - The following elements must be in scope: `DbRecordExt`, `DbTypeExt`, `TableSchema`, `ColSchema`, `phf`
+/// - each field Rust type must implement the trait `TypeExt` to map to a DB type
+/// - The following elements must be in scope: `OrmExt`, `TypeExt`, `TableSchemaStatic`, `ColSchemaStatic`
 ///
 /// # Attributes
 ///
@@ -25,16 +25,16 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 ///
 /// ## Field level attributes:
 /// - **name**: column name (optional)
-/// - **primary**: indicates a primary key (optional)
+/// - **primary_key**: indicates a primary key (optional)
 /// - **skip**: field is skipped (optional)
 ///
 /// # Example
 ///
 /// ```ignore
-/// #[derive(DbRecord)]
+/// #[derive(Orm)]
 /// #[db(table = "my_table")]
 /// struct MyRecord {
-///   #[db(primary)]
+///   #[db(primary_key)]
 ///   id: u32,
 ///   #[db(name = "id")]
 ///   id: u32,
@@ -43,7 +43,7 @@ use syn::{parse_macro_input, spanned::Spanned, Field, Ident, ItemStruct, LitStr}
 /// }
 /// ```
 #[proc_macro_error]
-#[proc_macro_derive(DbRecord, attributes(db))]
+#[proc_macro_derive(Orm, attributes(db))]
 pub fn derive_db_record(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
 
@@ -72,17 +72,17 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
         let field_id = &field_attrs.field_id;
         let field_type = &field.ty;
         let col_name = &field_attrs.col_name;
-        let col_is_primary = &field_attrs.primary;
-        if *col_is_primary {
+        let col_is_primary_key = &field_attrs.primary;
+        if *col_is_primary_key {
             has_primary_key = true;
         }
 
         if !field_attrs.skip {
             table_cols.push(quote! {
-                #col_name => ColSchema {
+                ColSchemaStatic {
                     id: #col_name,
-                    ty: <#field_type as DbTypeExt>::DB_TYPE,
-                    is_primary: #col_is_primary,
+                    ty: <#field_type as TypeExt>::DB_TYPE,
+                    is_primary: #col_is_primary_key,
                 }
             });
             map_insert_values.push(quote! {
@@ -101,13 +101,12 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
     }
 
     quote! {
-        impl DbRecordExt for #ident {
-            const DB_TABLE: TableSchema = TableSchema::new(
-                #table_name,
-                phf::phf_map! {
-                    #(#table_cols),*
-                },
-            );
+        impl OrmExt for #ident {
+            // DB SCHEMA
+            const DB_SCHEMA: TableSchemaStatic = TableSchemaStatic {
+                name: #table_name,
+                columns: &[#(#table_cols),*],
+            };
 
             // fn db_values(&self) -> ::std::collections::HashMap<&'static str, Box<&'_ dyn DbValue>> {
             //     // NB: map must be typed, otherwise it infers the value type from the 1st inserted value
@@ -232,7 +231,7 @@ impl FieldAttrs {
                                     skip = true;
                                     continue;
                                 }
-                                "primary" => {
+                                "primary_key" => {
                                     primary = true;
                                     continue;
                                 }

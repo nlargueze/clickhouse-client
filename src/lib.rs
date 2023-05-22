@@ -19,6 +19,7 @@ pub mod core;
 pub mod ddl;
 pub mod error;
 pub mod interface;
+pub mod orm;
 pub mod query;
 
 /// Clickhouse client
@@ -93,7 +94,7 @@ pub type HttpClient = Client<Http>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{ddl::TableSchema, Client, HttpClient};
+    use crate::{core::TableSchema, core::Type, Client, HttpClient};
     use std::sync::Once;
     use tokio::sync::OnceCell;
     use tracing_ext::sub::PrettyConsoleLayer;
@@ -129,13 +130,13 @@ mod tests {
                 client.create_db("test").await.unwrap();
 
                 let schema = TableSchema::new("tests")
-                    .new_column("uuid", "UUID", true)
-                    .new_column("string", "String", false)
-                    .new_column("uint8", "UInt8", false)
-                    .new_column("date", "Date", false)
-                    .new_column("date32", "Date32", false)
-                    .new_column("datetime", "DateTime", false)
-                    .new_column("datetime64", "DateTime64(9)", false);
+                    .new_column("uuid", Type::UUID, true)
+                    .new_column("string", Type::String, false)
+                    .new_column("uint8", Type::UInt8, false)
+                    .new_column("date", Type::Date, false)
+                    .new_column("date32", Type::Date32, false)
+                    .new_column("datetime", Type::DateTime, false)
+                    .new_column("datetime64", Type::DateTime64(9), false);
                 client.ddl().drop_table("tests").await.unwrap();
                 client
                     .ddl()

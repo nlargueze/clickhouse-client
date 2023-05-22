@@ -2,40 +2,42 @@
 //!
 //! ORM queries use the `BinaryRow` format to get data from and into the DB.
 
-use crate::{error::Error, interface::Interface, query::RowBinaryWithNamesFormatter};
+use crate::{core::fmt::rowbin::RowBinFormatter, error::Error, interface::Interface};
 
-use super::{prelude::*, OrmQueryExecutor};
+use super::{OrmExt, OrmQuery};
 
 // DDL
-impl<'a, T, U> OrmQueryExecutor<'a, T, U>
+impl<'a, T, U> OrmQuery<'a, T, U>
 where
     T: Interface,
-    U: DbRecordExt,
+    U: OrmExt,
 {
     /// Creates a record table
-    #[tracing::instrument(skip(self), fields(table = U::DB_TABLE.name))]
+    #[tracing::instrument(skip(self), fields(table = U::db_schema().name))]
     pub async fn create_table(&self, engine: &str) -> Result<(), Error> {
-        self.client.create_table(&U::DB_TABLE, engine).await
+        let schema = U::db_schema();
+        self.client.ddl().create_table(&schema, engine).await
     }
 }
 
 // OPS
-impl<'a, T, U> OrmQueryExecutor<'a, T, U>
+impl<'a, T, U> OrmQuery<'a, T, U>
 where
     T: Interface,
-    U: DbRecordExt,
+    U: OrmExt,
 {
     /// Select records
-    #[tracing::instrument(skip(self), fields(table = U::DB_TABLE.name))]
+    #[tracing::instrument(skip(self), fields(table = U::db_schema().name))]
     pub async fn select(&self, columns: &[&str]) -> Result<(), Error> {
-        let schema = U::DB_TABLE;
+        // todo!();
+        let schema = U::db_schema();
 
         let table = self
             .client
             .raw_query_opts()
             .db
             .map(|db| format!("{}.{}", db, schema.name))
-            .unwrap_or(schema.name.to_string());
+            .unwrap_or(schema.name);
 
         let cols = if columns.is_empty() {
             vec!["*"]
@@ -51,17 +53,18 @@ where
 
         let options = self.client.raw_query_opts();
         let bytes = self.client.interface.raw_query(&query, options).await?;
-        eprintln!("XXXXX");
-        eprintln!("{:X?}", bytes);
-        eprintln!("{:?}", unsafe {
-            String::from_utf8_unchecked(bytes.clone())
-        });
 
-        let formatter = RowBinaryWithNamesFormatter::new(&schema);
-        formatter.parse(&bytes).unwrap();
-        eprintln!("{:X?}", bytes);
+        let formatter = RowBinFormatter;
+        // formatter.parse_table(bytes, types);
+        // QueryTable::from_schema(&schema).fill_with(format);
+        // formatter.parse(&bytes).unwrap();
+        // eprintln!("{:X?}", bytes);
 
-        Ok(())
+        // INSERT
+        // let table = <value as OrmRecord>.to_query_table(formatter);
+
+        // Ok(())
+        todo!()
     }
 }
 

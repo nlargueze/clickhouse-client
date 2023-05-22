@@ -1,4 +1,6 @@
-//! Schemas
+//! Schema
+
+use crate::core::Type;
 
 /// Table schema
 #[derive(Debug)]
@@ -25,29 +27,29 @@ impl TableSchema {
     }
 
     /// Adds a column
-    pub fn new_column(mut self, id: &str, ty: &str, is_primary: bool) -> Self {
+    pub fn new_column(mut self, id: &str, ty: Type, is_primary: bool) -> Self {
         self.columns.push(ColSchema::new(id, ty, is_primary));
         self
     }
 }
 
-/// Static column schema
+/// Column schema
 #[derive(Debug, Clone)]
 pub struct ColSchema {
     /// ID
     pub id: String,
     /// Type (Clickhouse data type)
-    pub ty: String,
+    pub ty: Type,
     /// Primary key
     pub is_primary: bool,
 }
 
 impl ColSchema {
     /// Creates a new column
-    pub fn new(id: &str, ty: &str, is_primary: bool) -> Self {
+    pub fn new(id: &str, ty: Type, is_primary: bool) -> Self {
         Self {
             id: id.to_string(),
-            ty: ty.to_string(),
+            ty,
             is_primary,
         }
     }
