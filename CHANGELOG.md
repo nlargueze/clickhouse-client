@@ -2,11 +2,19 @@
     
 All notable changes to this project will be documented in this file.
 
+## [v0.16.0] - 2023-09-02
+
 ## [v0.15.0] - 2023-05-17
+
+https://github.com/nlargueze/clickhouse-client.git/releases/tag/v0.15.0
 
 ### Bug fixes
 
 - fix: fixed bug with escaping [0edd67b](https://github.com/nlargueze/clickhouse-client.git/commit/0edd67b13ccb2b32cd70bc86d204e09e71d9027b)
+
+### Uncategorized
+
+- chore(release): Release v0.15.0 [812f64f](https://github.com/nlargueze/clickhouse-client.git/commit/812f64fd4bfc48eb1865d4b509aa3dbece532abc)
 
 ## [v0.14.0] - 2023-05-17
 
