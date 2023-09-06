@@ -83,12 +83,12 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
         if !attrs.skip.value {
             // .column("id", Uuid::ch_type(), true)
             schema_entries.push(quote! {
-                .column(#col_name, #field_type::ch_type(), #col_primary)
+                .column(#col_name, <#field_type>::ch_type(), #col_primary)
             });
 
             // .field("id", true, Uuid::ch_type(), self.id.into_ch_value())
             into_record_entries.push(quote! {
-                .field(#col_name, #col_primary, #field_type::ch_type(), self.#field_id.into_ch_value())
+                .field(#col_name, #col_primary, <#field_type>::ch_type(), self.#field_id.into_ch_value())
             });
 
             // id: match record.remove_field("id") {
@@ -97,7 +97,7 @@ pub fn derive_db_record(input: TokenStream) -> TokenStream {
             // },
             from_record_entries.push(quote! {
                 #field_id: match record.remove_field(#col_name) {
-                    Some(field) => #field_type::from_ch_value(field.value)?,
+                    Some(field) => <#field_type>::from_ch_value(field.value)?,
                     None => return Err(Error::new(format!("Missing field '{}'", #col_name).as_str())),
                 }
             });

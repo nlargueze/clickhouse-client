@@ -23,6 +23,8 @@ struct TestRecord {
     count: u8,
     /// Date
     date: Date,
+    /// Optional count
+    count_opt: Option<u8>,
 }
 
 #[tokio::test]
@@ -42,6 +44,7 @@ async fn orm_crud() {
         name: "name".to_string(),
         count: 1,
         date: Date::from_ordinal_date(2023, 1).unwrap(),
+        count_opt: Some(1),
     };
 
     client.orm().insert(vec![sample.clone()]).await.unwrap();

@@ -170,52 +170,73 @@ pub trait ChRecord: Sized {
 
 // // -- TEST --
 
+// use prelude::*;
+// use time::Date;
+// use uuid::Uuid;
+
 // struct TestRecord {
 //     /// ID
-//     // #[ch(primary_key)]
-//     id: uuid::Uuid,
+//     id: Uuid,
 //     /// Name
 //     name: String,
 //     /// Count
 //     count: u8,
 //     /// Date
-//     date: time::Date,
+//     date: Date,
+//     /// Optional
+//     count_opt: Option<u8>,
 // }
 
 // impl ChRecord for TestRecord {
 //     fn ch_schema() -> TableSchema {
 //         TableSchema::new("test_orm")
-//             .column("id", Type::UUID, true)
-//             .column("name", Type::String, false)
-//             .column("count", Type::UInt8, false)
-//             .column("date", Type::Date, false)
+//             .column("id", <Uuid>::ch_type(), true)
+//             .column("name", <String>::ch_type(), false)
+//             .column("count", <u8>::ch_type(), false)
+//             .column("date", <Date>::ch_type(), false)
+//             .column("count_opt", <Option<u8>>::ch_type(), false)
 //     }
 
 //     fn into_ch_record(self) -> Record {
 //         Record::new("test_orm")
-//             .field("id", true, Type::UUID, self.id.into_ch_value())
-//             .field("name", false, Type::String, self.name.into_ch_value())
-//             .field("count", false, Type::UInt8, self.count.into_ch_value())
-//             .field("date", false, Type::Date, self.date.into_ch_value())
+//             .field("id", true, <Uuid>::ch_type(), self.id.into_ch_value())
+//             .field(
+//                 "name",
+//                 false,
+//                 <String>::ch_type(),
+//                 self.name.into_ch_value(),
+//             )
+//             .field("count", false, <u8>::ch_type(), self.count.into_ch_value())
+//             .field("date", false, <Date>::ch_type(), self.date.into_ch_value())
+//             .field(
+//                 "count_opt",
+//                 false,
+//                 <Option<u8>>::ch_type(),
+//                 self.count_opt.into_ch_value(),
+//             )
 //     }
 
 //     /// Parses from a Clickhouse record
 //     fn from_ch_record(mut record: Record) -> Result<Self, Error> {
 //         Ok(Self {
 //             id: match record.remove_field("id") {
-//                 Some(field) => ::uuid::Uuid::from_ch_value(field.value)?,
+//                 Some(field) => <Uuid>::from_ch_value(field.value)?,
 //                 None => return Err(Error::new("Missing field 'id'")),
 //             },
 //             name: match record.remove_field("name") {
-//                 Some(field) => String::from_ch_value(field.value)?,
+//                 Some(field) => <String>::from_ch_value(field.value)?,
 //                 None => return Err(Error::new("Missing field 'name'")),
 //             },
 //             count: match record.remove_field("count") {
-//                 Some(field) => u8::from_ch_value(field.value)?,
+//                 Some(field) => <u8>::from_ch_value(field.value)?,
 //                 None => return Err(Error::new("Missing field 'count'")),
 //             },
 //             date: match record.remove_field("date") {
-//                 Some(field) => ::time::Date::from_ch_value(field.value)?,
+//                 Some(field) => <Date>::from_ch_value(field.value)?,
+//                 None => return Err(Error::new("Missing field 'date'")),
+//             },
+//             count_opt: match record.remove_field("count_opt") {
+//                 Some(field) => <Option<u8>>::from_ch_value(field.value)?,
 //                 None => return Err(Error::new("Missing field 'date'")),
 //             },
 //         })
